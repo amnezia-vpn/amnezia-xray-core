@@ -15,21 +15,21 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/app/dispatcher"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/signal"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/stats"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/reality"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	"github.com/pires/go-proxyproto"
-	"github.com/xtls/xray-core/app/dispatcher"
-	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/common/signal"
-	"github.com/xtls/xray-core/features/routing"
-	"github.com/xtls/xray-core/features/stats"
-	"github.com/xtls/xray-core/transport"
-	"github.com/xtls/xray-core/transport/internet"
-	"github.com/xtls/xray-core/transport/internet/reality"
-	"github.com/xtls/xray-core/transport/internet/stat"
-	"github.com/xtls/xray-core/transport/internet/tls"
 )
 
 var (
@@ -102,7 +102,7 @@ type TrafficState struct {
 	// reader link state
 	WithinPaddingBuffers     bool
 	ReaderSwitchToDirectCopy bool
-	RemainingCommand		 int32
+	RemainingCommand         int32
 	RemainingContent         int32
 	RemainingPadding         int32
 	CurrentCommand           int
@@ -215,7 +215,7 @@ func (w *VisionWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 					w.trafficState.WriterSwitchToDirectCopy = true
 				}
 				var command byte = CommandPaddingContinue
-				if i == len(mb) - 1 {
+				if i == len(mb)-1 {
 					command = CommandPaddingEnd
 					if w.trafficState.EnableXtls {
 						command = CommandPaddingDirect
@@ -231,7 +231,7 @@ func (w *VisionWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 				break
 			}
 			var command byte = CommandPaddingContinue
-			if i == len(mb) - 1 && !w.trafficState.IsPadding {
+			if i == len(mb)-1 && !w.trafficState.IsPadding {
 				command = CommandPaddingEnd
 				if w.trafficState.EnableXtls {
 					command = CommandPaddingDirect
@@ -338,11 +338,11 @@ func XtlsUnpadding(b *buf.Buffer, s *TrafficState, ctx context.Context) *buf.Buf
 			case 5:
 				s.CurrentCommand = int(data)
 			case 4:
-				s.RemainingContent = int32(data)<<8
+				s.RemainingContent = int32(data) << 8
 			case 3:
 				s.RemainingContent = s.RemainingContent | int32(data)
 			case 2:
-				s.RemainingPadding = int32(data)<<8
+				s.RemainingPadding = int32(data) << 8
 			case 1:
 				s.RemainingPadding = s.RemainingPadding | int32(data)
 				newError("Xtls Unpadding new block, content ", s.RemainingContent, " padding ", s.RemainingPadding, " command ", s.CurrentCommand).WriteToLog(session.ExportIDToError(ctx))
@@ -508,7 +508,7 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 			newError("CopyRawConn splice").WriteToLog(session.ExportIDToError(ctx))
 			statWriter, _ := writer.(*dispatcher.SizeStatWriter)
 			//runtime.Gosched() // necessary
-			time.Sleep(time.Millisecond) // without this, there will be a rare ssl error for freedom splice
+			time.Sleep(time.Millisecond)    // without this, there will be a rare ssl error for freedom splice
 			timer.SetTimeout(8 * time.Hour) // prevent leak, just in case
 			if inTimer != nil {
 				inTimer.SetTimeout(8 * time.Hour)

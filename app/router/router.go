@@ -1,18 +1,18 @@
 package router
 
-//go:generate go run github.com/xtls/xray-core/common/errors/errorgen
+//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
 
 import (
 	"context"
 	sync "sync"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/dns"
-	"github.com/xtls/xray-core/features/outbound"
-	"github.com/xtls/xray-core/features/routing"
-	routing_dns "github.com/xtls/xray-core/features/routing/dns"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/outbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
+	routing_dns "github.com/amnezia-vpn/amnezia-xray-core/features/routing/dns"
 )
 
 // Router is an implementation of routing.Router.

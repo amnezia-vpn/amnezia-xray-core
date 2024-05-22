@@ -7,12 +7,12 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	utls "github.com/refraction-networking/utls"
-	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/net"
 )
 
-//go:generate go run github.com/xtls/xray-core/common/errors/errorgen
+//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
 
 type Interface interface {
 	net.Conn

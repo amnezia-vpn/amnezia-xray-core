@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 
-	cserial "github.com/xtls/xray-core/common/serial"
+	cserial "github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 )
 
 func MarshalToJson(v interface{}) (string, bool) {

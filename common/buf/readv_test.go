@@ -8,10 +8,10 @@ import (
 	"net"
 	"testing"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	. "github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/testing/servers/tcp"
 	"github.com/google/go-cmp/cmp"
-	"github.com/xtls/xray-core/common"
-	. "github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/testing/servers/tcp"
 	"golang.org/x/sync/errgroup"
 )
 

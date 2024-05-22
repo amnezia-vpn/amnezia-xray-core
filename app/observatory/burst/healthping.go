@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xtls/xray-core/common/dice"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/dice"
 )
 
 // HealthPingSettings holds settings for health Checker

@@ -1,9 +1,10 @@
-module github.com/xtls/xray-core
+module github.com/amnezia-vpn/amnezia-xray-core
 
-go 1.22
+go 1.22.3
 
 require (
 	github.com/OmarTariq612/goech v0.0.0-20240405204721-8e2e1dafd3a0
+	github.com/amnezia-vpn/amneziawg-go v0.2.10
 	github.com/cloudflare/circl v1.3.8
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344
 	github.com/golang/mock v1.7.0-rc.1
@@ -26,7 +27,6 @@ require (
 	golang.org/x/net v0.25.0
 	golang.org/x/sync v0.7.0
 	golang.org/x/sys v0.20.0
-	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
 	gvisor.dev/gvisor v0.0.0-20231202080848-1f7806d17489
@@ -47,6 +47,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.16.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
+	github.com/tevino/abool/v2 v2.1.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	go.uber.org/mock v0.4.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect

@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/net/cnc"
-	"github.com/xtls/xray-core/common/signal/done"
-	"github.com/xtls/xray-core/transport"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net/cnc"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/signal/done"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport"
 )
 
 // OutboundListener is a net.Listener for listening gRPC connections.

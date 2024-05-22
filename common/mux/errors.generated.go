@@ -1,6 +1,6 @@
 package mux
 
-import "github.com/xtls/xray-core/common/errors"
+import "github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 
 type errPathObjHolder struct{}
 

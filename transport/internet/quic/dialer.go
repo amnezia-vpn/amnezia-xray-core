@@ -5,15 +5,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/logging"
 	"github.com/quic-go/quic-go/qlog"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/task"
-	"github.com/xtls/xray-core/transport/internet"
-	"github.com/xtls/xray-core/transport/internet/stat"
-	"github.com/xtls/xray-core/transport/internet/tls"
 )
 
 type connectionContext struct {
@@ -208,7 +208,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 			IP:   dest.Address.IP(),
 			Port: int(dest.Port),
 		}
-	}  else {
+	} else {
 		dialerIp := internet.DestIpAddress()
 		if dialerIp != nil {
 			destAddr = &net.UDPAddr{

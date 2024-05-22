@@ -4,19 +4,19 @@ import (
 	"context"
 	"time"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/retry"
-	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/common/signal"
-	"github.com/xtls/xray-core/common/task"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/policy"
-	"github.com/xtls/xray-core/transport"
-	"github.com/xtls/xray-core/transport/internet"
-	"github.com/xtls/xray-core/transport/internet/stat"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/retry"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/signal"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/policy"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
 )
 
 // Client is a inbound handler for Shadowsocks protocol
@@ -50,7 +50,7 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 // Process implements OutboundHandler.Process().
 func (c *Client) Process(ctx context.Context, link *transport.Link, dialer internet.Dialer) error {
 	outbounds := session.OutboundsFromContext(ctx)
-	ob := outbounds[len(outbounds) - 1]
+	ob := outbounds[len(outbounds)-1]
 	if !ob.Target.IsValid() {
 		return newError("target not specified")
 	}

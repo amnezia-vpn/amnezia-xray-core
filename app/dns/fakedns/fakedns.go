@@ -1,3 +1,3 @@
 package fakedns
 
-//go:generate go run github.com/xtls/xray-core/common/errors/errorgen
+//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen

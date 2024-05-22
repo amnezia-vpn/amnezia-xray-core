@@ -4,11 +4,11 @@ import (
 	"context"
 	sync "sync"
 
-	"github.com/xtls/xray-core/app/observatory"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/extension"
-	"github.com/xtls/xray-core/features/outbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/observatory"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/extension"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/outbound"
 )
 
 type BalancingStrategy interface {
@@ -24,8 +24,8 @@ type RoundRobinStrategy struct {
 
 	ctx         context.Context
 	observatory extension.Observatory
-	mu    sync.Mutex
-	index int
+	mu          sync.Mutex
+	index       int
 }
 
 func (s *RoundRobinStrategy) InjectContext(ctx context.Context) {

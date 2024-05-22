@@ -1,24 +1,24 @@
 package dokodemo
 
-//go:generate go run github.com/xtls/xray-core/common/errors/errorgen
+//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
 
 import (
 	"context"
 	"sync/atomic"
 	"time"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/log"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/common/signal"
-	"github.com/xtls/xray-core/common/task"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/policy"
-	"github.com/xtls/xray-core/features/routing"
-	"github.com/xtls/xray-core/transport/internet/stat"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/log"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/signal"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/policy"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
 )
 
 func init() {
@@ -88,7 +88,7 @@ func (d *DokodemoDoor) Process(ctx context.Context, network net.Network, conn st
 	if d.config.FollowRedirect {
 		outbounds := session.OutboundsFromContext(ctx)
 		if len(outbounds) > 0 {
-			ob := outbounds[len(outbounds) - 1]
+			ob := outbounds[len(outbounds)-1]
 			if ob.Target.IsValid() {
 				dest = ob.Target
 				destinationOverridden = true

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/xtls/xray-core/common/platform/filesystem"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/platform/filesystem"
 	"golang.org/x/crypto/ocsp"
 )
 

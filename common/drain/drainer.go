@@ -3,7 +3,7 @@ package drain
 import (
 	"io"
 
-	"github.com/xtls/xray-core/common/dice"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/dice"
 )
 
 type BehaviorSeedLimitedDrainer struct {

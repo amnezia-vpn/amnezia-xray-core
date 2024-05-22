@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/xtls/xray-core/common/reflect"
-	cserial "github.com/xtls/xray-core/common/serial"
-	iserial "github.com/xtls/xray-core/infra/conf/serial"
+	. "github.com/amnezia-vpn/amnezia-xray-core/common/reflect"
+	cserial "github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	iserial "github.com/amnezia-vpn/amnezia-xray-core/infra/conf/serial"
 )
 
 func TestMashalStruct(t *testing.T) {

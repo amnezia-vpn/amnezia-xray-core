@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/xtls/xray-core/common/platform"
-	"github.com/xtls/xray-core/common/signal/done"
-	"github.com/xtls/xray-core/common/signal/semaphore"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/platform"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/signal/done"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/signal/semaphore"
 )
 
 // Writer is the interface for writing logs.

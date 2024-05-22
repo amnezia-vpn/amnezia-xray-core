@@ -5,18 +5,18 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/platform"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/features"
-	"github.com/xtls/xray-core/features/dns"
-	"github.com/xtls/xray-core/features/dns/localdns"
-	"github.com/xtls/xray-core/features/inbound"
-	"github.com/xtls/xray-core/features/outbound"
-	"github.com/xtls/xray-core/features/policy"
-	"github.com/xtls/xray-core/features/routing"
-	"github.com/xtls/xray-core/features/stats"
-	"github.com/xtls/xray-core/transport/internet"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/platform"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/features"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/dns/localdns"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/inbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/outbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/policy"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/stats"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 )
 
 // Server is an instance of Xray. At any time, there must be at most one Server instance running.
@@ -181,7 +181,7 @@ func NewWithContext(ctx context.Context, config *Config) (*Instance, error) {
 }
 
 func initInstanceWithConfig(config *Config, server *Instance) (bool, error) {
-	server.ctx = context.WithValue(server.ctx, "cone", 
+	server.ctx = context.WithValue(server.ctx, "cone",
 		platform.NewEnvFlag(platform.UseCone).GetValue(func() string { return "" }) != "true")
 
 	if config.Transport != nil {

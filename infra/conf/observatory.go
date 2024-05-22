@@ -2,10 +2,10 @@ package conf
 
 import (
 	"google.golang.org/protobuf/proto"
-	
-	"github.com/xtls/xray-core/app/observatory"
-	"github.com/xtls/xray-core/app/observatory/burst"
-	"github.com/xtls/xray-core/infra/conf/cfgcommon/duration"
+
+	"github.com/amnezia-vpn/amnezia-xray-core/app/observatory"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/observatory/burst"
+	"github.com/amnezia-vpn/amnezia-xray-core/infra/conf/cfgcommon/duration"
 )
 
 type ObservatoryConfig struct {

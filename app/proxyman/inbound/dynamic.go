@@ -5,14 +5,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xtls/xray-core/app/proxyman"
-	"github.com/xtls/xray-core/common/dice"
-	"github.com/xtls/xray-core/common/mux"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/task"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/proxy"
-	"github.com/xtls/xray-core/transport/internet"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/proxyman"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/dice"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/mux"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 )
 
 type DynamicInboundHandler struct {
