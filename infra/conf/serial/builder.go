@@ -4,11 +4,11 @@ import (
 	"context"
 	"io"
 
-	"github.com/xtls/xray-core/common/errors"
-	creflect "github.com/xtls/xray-core/common/reflect"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/infra/conf"
-	"github.com/xtls/xray-core/main/confloader"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	creflect "github.com/amnezia-vpn/amnezia-xray-core/common/reflect"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/infra/conf"
+	"github.com/amnezia-vpn/amnezia-xray-core/main/confloader"
 )
 
 func MergeConfigFromFiles(files []*core.ConfigSource) (string, error) {

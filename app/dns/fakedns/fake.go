@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/cache"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/features/dns"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/cache"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 )
 
 type Holder struct {

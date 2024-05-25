@@ -3,8 +3,8 @@ package conf_test
 import (
 	"testing"
 
-	. "github.com/xtls/xray-core/infra/conf"
-	"github.com/xtls/xray-core/proxy/wireguard"
+	. "github.com/amnezia-vpn/amnezia-xray-core/infra/conf"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/wireguard"
 )
 
 func TestWireGuardConfig(t *testing.T) {

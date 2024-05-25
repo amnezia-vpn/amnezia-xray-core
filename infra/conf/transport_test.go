@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	. "github.com/xtls/xray-core/infra/conf"
-	"github.com/xtls/xray-core/transport/internet"
+	. "github.com/amnezia-vpn/amnezia-xray-core/infra/conf"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 	"google.golang.org/protobuf/proto"
 )
 

@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"strings"
 
-	cnet "github.com/xtls/xray-core/common/net"
-	cserial "github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/infra/conf"
+	cnet "github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	cserial "github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/infra/conf"
 )
 
 func MarshalToJson(v interface{}, insertTypeInfo bool) (string, bool) {

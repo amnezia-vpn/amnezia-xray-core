@@ -1,1 +1,1 @@
-package protocol // import "github.com/xtls/xray-core/common/protocol"
+package protocol // import "github.com/amnezia-vpn/amnezia-xray-core/common/protocol"

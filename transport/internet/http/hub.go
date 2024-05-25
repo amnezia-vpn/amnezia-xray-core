@@ -8,19 +8,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net/cnc"
+	http_proto "github.com/amnezia-vpn/amnezia-xray-core/common/protocol/http"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/signal/done"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/reality"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	goreality "github.com/xtls/reality"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/net/cnc"
-	http_proto "github.com/xtls/xray-core/common/protocol/http"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/common/signal/done"
-	"github.com/xtls/xray-core/transport/internet"
-	"github.com/xtls/xray-core/transport/internet/reality"
-	"github.com/xtls/xray-core/transport/internet/tls"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -188,7 +188,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		var server *http.Server
 		if config == nil {
 			h2s := &http2.Server{}
-	
+
 			server = &http.Server{
 				Addr:              serial.Concat(address, ":", port),
 				Handler:           h2c.NewHandler(listener, h2s),
@@ -202,7 +202,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 				ReadHeaderTimeout: time.Second * 4,
 			}
 		}
-	
+
 		listener.server = server
 		go func() {
 			var streamListener net.Listener
@@ -226,7 +226,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 					return
 				}
 			}
-	
+
 			if config == nil {
 				if config := reality.ConfigFromStreamSettings(streamSettings); config != nil {
 					streamListener = goreality.NewListener(streamListener, config.GetREALITYConfig())
@@ -241,7 +241,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 					errors.LogInfoInner(ctx, err, "stopping serving TLS H2")
 				}
 			}
-		}()	
+		}()
 	}
 
 	return listener, nil

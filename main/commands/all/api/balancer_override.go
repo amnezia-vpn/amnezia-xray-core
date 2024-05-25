@@ -1,8 +1,8 @@
 package api
 
 import (
-	routerService "github.com/xtls/xray-core/app/router/command"
-	"github.com/xtls/xray-core/main/commands/base"
+	routerService "github.com/amnezia-vpn/amnezia-xray-core/app/router/command"
+	"github.com/amnezia-vpn/amnezia-xray-core/main/commands/base"
 )
 
 var cmdBalancerOverride = &base.Command{

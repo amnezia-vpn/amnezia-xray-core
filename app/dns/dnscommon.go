@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/log"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/core"
-	dns_feature "github.com/xtls/xray-core/features/dns"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/log"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	dns_feature "github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 	"golang.org/x/net/dns/dnsmessage"
 )
 

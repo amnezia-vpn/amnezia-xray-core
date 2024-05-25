@@ -4,9 +4,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/uuid"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/uuid"
 )
 
 type Validator interface {

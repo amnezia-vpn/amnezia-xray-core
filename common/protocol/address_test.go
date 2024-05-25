@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	. "github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/google/go-cmp/cmp"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/net"
-	. "github.com/xtls/xray-core/common/protocol"
 )
 
 func TestAddressReading(t *testing.T) {

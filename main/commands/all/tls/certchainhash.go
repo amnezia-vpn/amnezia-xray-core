@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xtls/xray-core/main/commands/base"
-	"github.com/xtls/xray-core/transport/internet/tls"
+	"github.com/amnezia-vpn/amnezia-xray-core/main/commands/base"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 )
 
 var cmdCertChainHash = &base.Command{

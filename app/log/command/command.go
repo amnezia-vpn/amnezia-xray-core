@@ -3,10 +3,10 @@ package command
 import (
 	"context"
 
-	"github.com/xtls/xray-core/app/log"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/log"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
 	grpc "google.golang.org/grpc"
 )
 

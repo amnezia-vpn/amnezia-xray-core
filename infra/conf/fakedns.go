@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/xtls/xray-core/app/dns/fakedns"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/features/dns"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/dns/fakedns"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 )
 
 type FakeDNSPoolElementConfig struct {

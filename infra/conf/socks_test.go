@@ -3,11 +3,11 @@ package conf_test
 import (
 	"testing"
 
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/serial"
-	. "github.com/xtls/xray-core/infra/conf"
-	"github.com/xtls/xray-core/proxy/socks"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	. "github.com/amnezia-vpn/amnezia-xray-core/infra/conf"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/socks"
 )
 
 func TestSocksInboundConfig(t *testing.T) {

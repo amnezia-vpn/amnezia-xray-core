@@ -3,8 +3,8 @@ package command
 import (
 	"strings"
 
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/features/routing"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
 )
 
 // routingContext is an wrapper of protobuf RoutingContext as implementation of routing.Context and routing.Route.

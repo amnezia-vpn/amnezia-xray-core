@@ -3,9 +3,9 @@ package buf
 import (
 	"io"
 
-	"github.com/xtls/xray-core/common/bytespool"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/bytespool"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 )
 
 const (
