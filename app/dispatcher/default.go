@@ -4,6 +4,7 @@ package dispatcher
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -186,8 +187,20 @@ func (d *DefaultDispatcher) shouldOverride(ctx context.Context, result SniffResu
 		return false
 	}
 	for _, d := range request.ExcludeForDomain {
-		if strings.ToLower(domain) == d {
-			return false
+		if strings.HasPrefix(d, "regexp:") {
+			pattern := d[7:]
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				newError("Unable to compile regex").WriteToLog(session.ExportIDToError(ctx))
+				continue
+			}
+			if re.MatchString(domain) {
+				return false
+			}
+		} else {
+			if strings.ToLower(domain) == d {
+				return false
+			}
 		}
 	}
 	protocolString := result.Protocol()
