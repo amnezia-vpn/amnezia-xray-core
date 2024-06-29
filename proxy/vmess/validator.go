@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common/dice"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vmess/aead"
 )
@@ -104,6 +105,6 @@ func (v *TimedUserValidator) GetBehaviorSeed() uint64 {
 	return v.behaviorSeed
 }
 
-var ErrNotFound = newError("Not Found")
+var ErrNotFound = errors.New("Not Found")
 
-var ErrTainted = newError("ErrTainted")
+var ErrTainted = errors.New("ErrTainted")

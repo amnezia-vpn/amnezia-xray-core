@@ -5,6 +5,7 @@ import (
 
 	"github.com/amnezia-vpn/amnezia-xray-core/app/observatory"
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/core"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/extension"
 )
@@ -32,7 +33,7 @@ func (l *LeastPingStrategy) PickOutbound(strings []string) string {
 
 	observeReport, err := l.observatory.GetObservation(l.ctx)
 	if err != nil {
-		newError("cannot get observe report").Base(err).WriteToLog()
+		errors.LogInfoInner(l.ctx, err, "cannot get observe report")
 		return ""
 	}
 	outboundsList := outboundList(strings)
