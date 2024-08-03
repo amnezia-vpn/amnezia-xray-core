@@ -4,6 +4,10 @@
 
 [README](https://github.com/amnezia-vpn/amnezia-xray-core#readme) is open, so feel free to submit your project [here](https://github.com/amnezia-vpn/amnezia-xray-core/pulls).
 
+## NFTs
+
+[Announcement of NFTs by Project X](https://github.com/XTLS/Xray-core/discussions/3633)
+
 ## License
 
 [Mozilla Public License Version 2.0](https://github.com/amnezia-vpn/amnezia-xray-core/blob/main/LICENSE)
