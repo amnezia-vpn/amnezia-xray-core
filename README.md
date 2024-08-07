@@ -4,7 +4,7 @@
 
 [README](https://github.com/amnezia-vpn/amnezia-xray-core#readme) is open, so feel free to submit your project [here](https://github.com/amnezia-vpn/amnezia-xray-core/pulls).
 
-## NFTs
+## Donation & NFTs
 
 [Announcement of NFTs by Project X](https://github.com/XTLS/Xray-core/discussions/3633)
 
