@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 	. "github.com/amnezia-vpn/amnezia-xray-core/infra/conf"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/global"
@@ -12,9 +11,7 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/grpc"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/http"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/noop"
-	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/tls"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/kcp"
-	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/quic"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tcp"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/websocket"
 	"google.golang.org/protobuf/proto"
@@ -203,12 +200,6 @@ func TestTransportConfig(t *testing.T) {
 				"wsSettings": {
 					"path": "/t"
 				},
-				"quicSettings": {
-					"key": "abcd",
-					"header": {
-						"type": "dtls"
-					}
-				},
 				"grpcSettings": {
 					"serviceName": "name",
 					"multiMode": true
@@ -270,16 +261,6 @@ func TestTransportConfig(t *testing.T) {
 						ProtocolName: "websocket",
 						Settings: serial.ToTypedMessage(&websocket.Config{
 							Path: "/t",
-						}),
-					},
-					{
-						ProtocolName: "quic",
-						Settings: serial.ToTypedMessage(&quic.Config{
-							Key: "abcd",
-							Security: &protocol.SecurityConfig{
-								Type: protocol.SecurityType_NONE,
-							},
-							Header: serial.ToTypedMessage(&tls.PacketConfig{}),
 						}),
 					},
 					{

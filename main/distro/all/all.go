@@ -55,7 +55,6 @@ import (
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/http"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/httpupgrade"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/kcp"
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/quic"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/reality"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/splithttp"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tcp"
