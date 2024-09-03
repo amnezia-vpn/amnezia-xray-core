@@ -50,7 +50,6 @@ import (
 	_ "github.com/amnezia-vpn/amnezia-xray-core/proxy/wireguard"
 
 	// Transports
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/domainsocket"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/grpc"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/http"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/httpupgrade"
