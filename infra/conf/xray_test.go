@@ -22,7 +22,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vmess"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vmess/inbound"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
-	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/http"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/websocket"
 	"github.com/google/go-cmp/cmp"
@@ -128,11 +127,6 @@ func TestXrayConfig(t *testing.T) {
 							}
 						]
 					}
-				},
-				"transport": {
-					"httpSettings": {
-						"path": "/test"
-					}
 				}
 			}`,
 			Parser: createParser(),
@@ -172,17 +166,6 @@ func TestXrayConfig(t *testing.T) {
 				Outbound: []*core.OutboundHandlerConfig{
 					{
 						SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
-							StreamSettings: &internet.StreamConfig{
-								ProtocolName: "tcp",
-								TransportSettings: []*internet.TransportConfig{
-									{
-										ProtocolName: "http",
-										Settings: serial.ToTypedMessage(&http.Config{
-											Path: "/test",
-										}),
-									},
-								},
-							},
 						}),
 						ProxySettings: serial.ToTypedMessage(&freedom.Config{
 							DomainStrategy: freedom.Config_AS_IS,
@@ -192,33 +175,11 @@ func TestXrayConfig(t *testing.T) {
 					{
 						Tag: "blocked",
 						SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
-							StreamSettings: &internet.StreamConfig{
-								ProtocolName: "tcp",
-								TransportSettings: []*internet.TransportConfig{
-									{
-										ProtocolName: "http",
-										Settings: serial.ToTypedMessage(&http.Config{
-											Path: "/test",
-										}),
-									},
-								},
-							},
 						}),
 						ProxySettings: serial.ToTypedMessage(&blackhole.Config{}),
 					},
 					{
 						SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
-							StreamSettings: &internet.StreamConfig{
-								ProtocolName: "tcp",
-								TransportSettings: []*internet.TransportConfig{
-									{
-										ProtocolName: "http",
-										Settings: serial.ToTypedMessage(&http.Config{
-											Path: "/test",
-										}),
-									},
-								},
-							},
 						}),
 						ProxySettings: serial.ToTypedMessage(&dns_proxy.Config{
 							Server:      &net.Endpoint{},
@@ -240,12 +201,6 @@ func TestXrayConfig(t *testing.T) {
 											Header: map[string]string{
 												"host": "example.domain",
 											},
-										}),
-									},
-									{
-										ProtocolName: "http",
-										Settings: serial.ToTypedMessage(&http.Config{
-											Path: "/test",
 										}),
 									},
 								},
@@ -293,12 +248,6 @@ func TestXrayConfig(t *testing.T) {
 											Header: map[string]string{
 												"host": "example.domain",
 											},
-										}),
-									},
-									{
-										ProtocolName: "http",
-										Settings: serial.ToTypedMessage(&http.Config{
-											Path: "/test",
 										}),
 									},
 								},
@@ -387,7 +336,6 @@ func TestConfig_Override(t *testing.T) {
 				LogConfig:    &LogConfig{},
 				RouterConfig: &RouterConfig{},
 				DNSConfig:    &DNSConfig{},
-				Transport:    &TransportConfig{},
 				Policy:       &PolicyConfig{},
 				API:          &APIConfig{},
 				Stats:        &StatsConfig{},
@@ -398,7 +346,6 @@ func TestConfig_Override(t *testing.T) {
 				LogConfig:    &LogConfig{},
 				RouterConfig: &RouterConfig{},
 				DNSConfig:    &DNSConfig{},
-				Transport:    &TransportConfig{},
 				Policy:       &PolicyConfig{},
 				API:          &APIConfig{},
 				Stats:        &StatsConfig{},
