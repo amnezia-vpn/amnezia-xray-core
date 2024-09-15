@@ -16,7 +16,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/signal"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
 	"github.com/amnezia-vpn/amnezia-xray-core/core"
-	"github.com/amnezia-vpn/amnezia-xray-core/features"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/policy"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/http"
@@ -56,7 +55,7 @@ func (s *Server) policy() policy.Session {
 	config := s.config
 	p := s.policyManager.ForLevel(config.UserLevel)
 	if config.Timeout > 0 {
-		features.PrintDeprecatedFeatureWarning("Socks timeout")
+		errors.PrintDeprecatedFeatureWarning("Socks timeout", "Policy level")
 	}
 	if config.Timeout > 0 && config.UserLevel == 0 {
 		p.Timeouts.ConnectionIdle = time.Duration(config.Timeout) * time.Second

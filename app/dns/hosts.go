@@ -7,7 +7,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/strmatcher"
-	"github.com/amnezia-vpn/amnezia-xray-core/features"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 )
 
@@ -26,7 +25,7 @@ func NewStaticHosts(hosts []*Config_HostMapping, legacy map[string]*net.IPOrDoma
 	}
 
 	if legacy != nil {
-		features.PrintDeprecatedFeatureWarning("simple host mapping")
+		errors.PrintDeprecatedFeatureWarning("simple host mapping", "")
 
 		for domain, ip := range legacy {
 			matcher, err := strmatcher.Full.New(domain)
