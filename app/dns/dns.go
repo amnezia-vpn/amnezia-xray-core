@@ -1,8 +1,6 @@
 // Package dns is an implementation of core.DNS feature.
 package dns
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 import (
 	"context"
 	"fmt"

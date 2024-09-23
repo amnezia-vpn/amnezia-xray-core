@@ -7,8 +7,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/main/commands/base"
 )
 
-// go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 func init() {
 	base.RootCommand.Commands = append(
 		base.RootCommand.Commands,

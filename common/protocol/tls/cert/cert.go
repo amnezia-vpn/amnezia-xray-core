@@ -16,8 +16,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 )
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 type Certificate struct {
 	// certificate in ASN.1 DER format
 	Certificate []byte

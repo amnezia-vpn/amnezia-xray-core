@@ -12,8 +12,6 @@ import (
 	utls "github.com/refraction-networking/utls"
 )
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 type Interface interface {
 	net.Conn
 	HandshakeContext(ctx context.Context) error

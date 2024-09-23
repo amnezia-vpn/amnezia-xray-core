@@ -12,8 +12,6 @@ import (
 	"github.com/amnezia-vpn/amneziawg-go/device"
 )
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 var wgLogger = &device.Logger{
 	Verbosef: func(format string, args ...any) {
 		log.Record(&log.GeneralMessage{
