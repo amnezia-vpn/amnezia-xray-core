@@ -5,14 +5,21 @@ import (
 	"context"
 	gotls "crypto/tls"
 	"encoding/base64"
+	"encoding/binary"
 	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
+	sync "sync"
 	"time"
 	"unsafe"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/app/dispatcher"
+
+	"github.com/amnezia-vpn/amnezia-xray-core/common/uuid"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/amnezia-vpn/amnezia-xray-core/app/reverse"
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
@@ -79,6 +86,11 @@ type Handler struct {
 	defaultDispatcher      *dispatcher.DefaultDispatcher
 	ctx                    context.Context
 	fallbacks              map[string]map[string]map[string]*Fallback // or nil
+	clientConnections      map[net.Conn]struct{}
+	notifiedInvalidIds     map[string]time.Time
+	clientMutex            sync.Mutex
+	notificationMutex      sync.Mutex
+	unixListener           net.Listener
 	// regexps               map[string]*regexp.Regexp       // or nil
 }
 
@@ -92,6 +104,8 @@ func New(ctx context.Context, config *Config, dc dns.Client, validator vless.Val
 		outboundHandlerManager: v.GetFeature(outbound.ManagerType()).(outbound.Manager),
 		defaultDispatcher:      v.GetFeature(routing.DispatcherType()).(*dispatcher.DefaultDispatcher),
 		ctx:                    ctx,
+		clientConnections:      make(map[net.Conn]struct{}),
+		notifiedInvalidIds:     make(map[string]time.Time),
 	}
 
 	if config.Decryption != "" && config.Decryption != "none" {
@@ -167,6 +181,26 @@ func New(ctx context.Context, config *Config, dc dns.Client, validator vless.Val
 		}
 	}
 
+	socketPath := config.Notifications
+
+	if socketPath != "" {
+		if _, err := os.Stat(socketPath); err == nil {
+			os.Remove(socketPath)
+		}
+
+		listener, err := net.Listen("unix", socketPath)
+		if err != nil {
+			errors.LogErrorInner(context.Background(), err, "error setting up UNIX domain socket listener")
+			return nil, err
+		}
+
+		os.Chmod(socketPath, 0600)
+
+		handler.unixListener = listener
+
+		go handler.acceptUnixSocketClients()
+	}
+
 	return handler, nil
 }
 
@@ -225,6 +259,20 @@ func (h *Handler) Close() error {
 	}
 	for _, u := range h.validator.GetAll() {
 		h.RemoveReverse(u)
+	}
+	h.clientMutex.Lock()
+	for clientConn := range h.clientConnections {
+		err := clientConn.Close()
+		if err != nil {
+			return err
+		}
+	}
+	h.clientMutex.Unlock()
+	if h.unixListener != nil {
+		err := h.unixListener.Close()
+		if err != nil {
+			return err
+		}
 	}
 	return errors.Combine(common.Close(h.validator))
 }
@@ -303,7 +351,10 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 	if isfb && firstLen < 18 {
 		err = errors.New("fallback directly")
 	} else {
-		userSentID, request, requestAddons, isfb, err = encoding.DecodeRequestHeader(isfb, first, reader, h.validator)
+		notifyInvalidUserIdCallback := func(userId uuid.UUID) {
+			h.notifyUnknownUserAttempt(connection, userId)
+		}
+		userSentID, request, requestAddons, isfb, err = encoding.DecodeRequestHeader(isfb, first, reader, h.validator, notifyInvalidUserIdCallback)
 	}
 
 	if err != nil {
@@ -684,4 +735,94 @@ func (r *Reverse) SenderSettings() *serial.TypedMessage {
 
 func (r *Reverse) ProxySettings() *serial.TypedMessage {
 	return nil
+}
+
+func (h *Handler) acceptUnixSocketClients() {
+	for {
+		conn, err := h.unixListener.Accept()
+		if err != nil {
+			errors.LogDebugInner(context.Background(), err, "error accepting UNIX socket connection")
+			continue
+		}
+		errors.LogDebug(context.Background(), "connected notifications UNIX socket")
+
+		h.clientMutex.Lock()
+		h.clientConnections[conn] = struct{}{}
+		h.clientMutex.Unlock()
+
+		go h.handleUnixSocketClient(conn)
+	}
+}
+
+func (h *Handler) handleUnixSocketClient(conn net.Conn) {
+	defer conn.Close()
+	buffer := make([]byte, 1)
+
+	for {
+		_, err := conn.Read(buffer)
+		if err != nil {
+			if err == io.EOF {
+				h.clientMutex.Lock()
+				delete(h.clientConnections, conn)
+				h.clientMutex.Unlock()
+				return
+			}
+			errors.LogDebug(context.Background(), err, "error reading from client")
+			return
+		}
+	}
+}
+
+func (h *Handler) notifyUnknownUserAttempt(conn net.Conn, attemptedUUID uuid.UUID) {
+	attemptedUUIDStr := attemptedUUID.String()
+	currentTime := time.Now()
+	h.notificationMutex.Lock()
+	uuidTime, exists := h.notifiedInvalidIds[attemptedUUIDStr]
+	if !exists || uuidTime.Before(currentTime.Add(-30*time.Second)) {
+		h.notifiedInvalidIds[attemptedUUIDStr] = currentTime
+		h.notificationMutex.Unlock()
+	} else {
+		h.notificationMutex.Unlock()
+		return
+	}
+
+	remoteAddr := conn.RemoteAddr()
+	var remoteIP string
+	var remotePort int
+	if tcpAddr, ok := remoteAddr.(*net.TCPAddr); ok {
+		remoteIP = tcpAddr.IP.String()
+		remotePort = tcpAddr.Port
+	} else {
+		remoteIP = remoteAddr.String()
+		remotePort = 0
+	}
+
+	attempt := &UnknownUserAttempt{
+		RemoteIp:      remoteIP,
+		RemotePort:    int32(remotePort),
+		AttemptedUuid: attemptedUUIDStr,
+		Timestamp:     time.Now().Unix(),
+	}
+
+	data, err := proto.Marshal(attempt)
+	if err != nil {
+		errors.LogErrorInner(context.Background(), err, "error marshalling protobuf message")
+		return
+	}
+	lengthBuf := make([]byte, 4)
+	binary.BigEndian.PutUint32(lengthBuf, uint32(len(data)))
+	message := append(lengthBuf, data...)
+
+	h.clientMutex.Lock()
+	defer h.clientMutex.Unlock()
+
+	for clientConn := range h.clientConnections {
+		errors.LogDebug(context.Background(), "writing data to UNIX socket client connection")
+		_, err := clientConn.Write(message)
+		if err != nil {
+			errors.LogErrorInner(context.Background(), err, "error writing to client")
+			clientConn.Close()
+			delete(h.clientConnections, clientConn)
+		}
+	}
 }
