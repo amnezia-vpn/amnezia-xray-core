@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package xray.proxy.vless.inbound;
+option csharp_namespace = "Xray.Proxy.Vless.Inbound";
+option go_package = "github.com/amnezia-vpn/amnezia-xray-core/proxy/vless/inbound";
+option java_package = "com.xray.proxy.vless.inbound";
+option java_multiple_files = true;
+
+message UnknownUserAttempt {
+  string remote_ip = 1;
+  int32 remote_port = 2;
+  string attempted_uuid = 3;
+  int64 timestamp = 4;
+}
