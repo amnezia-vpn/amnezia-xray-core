@@ -5,6 +5,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/uuid"
+
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
@@ -62,7 +64,7 @@ func EncodeRequestHeader(writer io.Writer, request *protocol.RequestHeader, requ
 }
 
 // DecodeRequestHeader decodes and returns (if successful) a RequestHeader from an input stream.
-func DecodeRequestHeader(isfb bool, first *buf.Buffer, reader io.Reader, validator vless.Validator) (*protocol.RequestHeader, *Addons, bool, error) {
+func DecodeRequestHeader(isfb bool, first *buf.Buffer, reader io.Reader, validator vless.Validator, invalidUserIdCallback func(userId uuid.UUID)) (*protocol.RequestHeader, *Addons, bool, error) {
 	buffer := buf.StackNew()
 	defer buffer.Release()
 
@@ -93,6 +95,7 @@ func DecodeRequestHeader(isfb bool, first *buf.Buffer, reader io.Reader, validat
 		}
 
 		if request.User = validator.Get(id); request.User == nil {
+			invalidUserIdCallback(id)
 			return nil, nil, isfb, errors.New("invalid request user id")
 		}
 

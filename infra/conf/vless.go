@@ -29,9 +29,10 @@ type VLessInboundFallback struct {
 }
 
 type VLessInboundConfig struct {
-	Clients    []json.RawMessage       `json:"clients"`
-	Decryption string                  `json:"decryption"`
-	Fallbacks  []*VLessInboundFallback `json:"fallbacks"`
+	Clients       []json.RawMessage       `json:"clients"`
+	Decryption    string                  `json:"decryption"`
+	Fallbacks     []*VLessInboundFallback `json:"fallbacks"`
+	Notifications string                  `json:"notifications"`
 }
 
 // Build implements Buildable
@@ -72,6 +73,7 @@ func (c *VLessInboundConfig) Build() (proto.Message, error) {
 		return nil, errors.New(`VLESS settings: please add/set "decryption":"none" to every settings`)
 	}
 	config.Decryption = c.Decryption
+	config.Notifications = c.Notifications
 
 	for _, fb := range c.Fallbacks {
 		var i uint16
