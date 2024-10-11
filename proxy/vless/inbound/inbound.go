@@ -151,23 +151,25 @@ func New(ctx context.Context, config *Config, dc dns.Client) (*Handler, error) {
 		}
 	}
 
-	socketPath := "/var/run/vless_notifications.sock"
+	socketPath := config.Notifications
 
-	if _, err := os.Stat(socketPath); err == nil {
-		os.Remove(socketPath)
+	if socketPath != "" {
+		if _, err := os.Stat(socketPath); err == nil {
+			os.Remove(socketPath)
+		}
+
+		listener, err := net.Listen("unix", socketPath)
+		if err != nil {
+			newError("error setting up UNIX domain socket listener: %v").Base(err).AtError().WriteToLog()
+			return nil, err
+		}
+
+		os.Chmod(socketPath, 0600)
+
+		handler.unixListener = listener
+
+		go handler.acceptUnixSocketClients()
 	}
-
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		//log.Record("Error setting up UNIX domain socket listener: %v", err)
-		return nil, err
-	}
-
-	os.Chmod(socketPath, 0600)
-
-	handler.unixListener = listener
-
-	go handler.acceptUnixSocketClients()
 
 	return handler, nil
 }
