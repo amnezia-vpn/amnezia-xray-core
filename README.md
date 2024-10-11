@@ -1,12 +1,12 @@
 # Project X
 
-[Project X](https://github.com/XTLS) originates from XTLS protocol, providing a set of network tools such as [Xray-core](https://github.com/XTLS/Xray-core) and [REALITY](https://github.com/XTLS/REALITY).
+[Project X](https://github.com/XTLS) originates from XTLS protocol, providing a set of network tools such as [Xray-core](https://github.com/amnezia-vpn/amnezia-xray-core) and [REALITY](https://github.com/XTLS/REALITY).
 
-[README](https://github.com/XTLS/Xray-core#readme) is open, so feel free to submit your project [here](https://github.com/XTLS/Xray-core/pulls).
+[README](https://github.com/amnezia-vpn/amnezia-xray-core#readme) is open, so feel free to submit your project [here](https://github.com/amnezia-vpn/amnezia-xray-core/pulls).
 
 ## License
 
-[Mozilla Public License Version 2.0](https://github.com/XTLS/Xray-core/blob/main/LICENSE)
+[Mozilla Public License Version 2.0](https://github.com/amnezia-vpn/amnezia-xray-core/blob/main/LICENSE)
 
 ## Documentation
 
@@ -116,12 +116,12 @@
 
 ## Contributing
 
-[Code of Conduct](https://github.com/XTLS/Xray-core/blob/main/CODE_OF_CONDUCT.md)
+[Code of Conduct](https://github.com/amnezia-vpn/amnezia-xray-core/blob/main/CODE_OF_CONDUCT.md)
 
 ## Credits
 
-- [Xray-core v1.0.0](https://github.com/XTLS/Xray-core/releases/tag/v1.0.0) was forked from [v2fly-core 9a03cc5](https://github.com/v2fly/v2ray-core/commit/9a03cc5c98d04cc28320fcee26dbc236b3291256), and we have made & accumulated a huge number of enhancements over time, check [the release notes for each version](https://github.com/XTLS/Xray-core/releases).
-- For third-party projects used in [Xray-core](https://github.com/XTLS/Xray-core), check your local or [the latest go.mod](https://github.com/XTLS/Xray-core/blob/main/go.mod).
+- [Xray-core v1.0.0](https://github.com/amnezia-vpn/amnezia-xray-core/releases/tag/v1.0.0) was forked from [v2fly-core 9a03cc5](https://github.com/v2fly/v2ray-core/commit/9a03cc5c98d04cc28320fcee26dbc236b3291256), and we have made & accumulated a huge number of enhancements over time, check [the release notes for each version](https://github.com/amnezia-vpn/amnezia-xray-core/releases).
+- For third-party projects used in [Xray-core](https://github.com/amnezia-vpn/amnezia-xray-core), check your local or [the latest go.mod](https://github.com/amnezia-vpn/amnezia-xray-core/blob/main/go.mod).
 
 ## Compilation
 
