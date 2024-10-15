@@ -4,6 +4,7 @@ package session // import "github.com/amnezia-vpn/amnezia-xray-core/common/sessi
 import (
 	"context"
 	"math/rand"
+	"sync"
 
 	c "github.com/amnezia-vpn/amnezia-xray-core/common/ctx"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
@@ -91,6 +92,10 @@ type Content struct {
 	Attributes map[string]string
 
 	SkipDNSResolve bool
+
+	mu sync.Mutex
+
+	isLocked bool
 }
 
 // Sockopt is the settings for socket connection.
@@ -99,8 +104,22 @@ type Sockopt struct {
 	Mark int32
 }
 
+// Some how when using mux, there will be a same ctx between different requests
+// This will cause problem as it's designed for single request, like concurrent map writes
+// Add a Mutex as a temp solution
+
 // SetAttribute attaches additional string attributes to content.
 func (c *Content) SetAttribute(name string, value string) {
+	if c.isLocked {
+		errors.LogError(context.Background(), "Multiple goroutines are tring to access one routing content, tring to write ", name, ":", value)
+	}
+	c.mu.Lock()
+	c.isLocked = true
+	defer func() {
+		c.isLocked = false
+		c.mu.Unlock()
+	}()
+
 	if c.Attributes == nil {
 		c.Attributes = make(map[string]string)
 	}
