@@ -4,6 +4,10 @@
 
 [README](https://github.com/amnezia-vpn/amnezia-xray-core#readme) is open, so feel free to submit your project [here](https://github.com/amnezia-vpn/amnezia-xray-core/pulls).
 
+## Donation & NFTs
+
+[Announcement of NFTs by Project X](https://github.com/XTLS/Xray-core/discussions/3633)
+
 ## License
 
 [Mozilla Public License Version 2.0](https://github.com/amnezia-vpn/amnezia-xray-core/blob/main/LICENSE)
@@ -18,6 +22,8 @@
 
 [Project X Channel](https://t.me/projectXtls)
 
+[Project VLESS](https://t.me/projectVless) (non-Chinese)
+
 ## Installation
 
 - Linux Script
@@ -26,12 +32,11 @@
 - Docker
   - [ghcr.io/xtls/xray-core](https://ghcr.io/xtls/xray-core) (**Official**)
   - [teddysun/xray](https://hub.docker.com/r/teddysun/xray)
-- Web Panel
-  - [X-UI-English](https://github.com/NidukaAkalanka/x-ui-english), [3X-UI](https://github.com/MHSanaei/3x-ui), [X-UI](https://github.com/alireza0/x-ui), [X-UI](https://github.com/diditra/x-ui)
-  - [Xray-UI](https://github.com/qist/xray-ui), [X-UI](https://github.com/sing-web/x-ui)
-  - [Hiddify](https://github.com/hiddify/hiddify-config)
+  - [wulabing/xray_docker](https://github.com/wulabing/xray_docker)
+- Web Panel - **WARNING: Please DO NOT USE plain HTTP panels like 3X-UI**, as they are believed to be bribed by Iran GFW for supporting plain HTTP by default and refused to change (https://github.com/XTLS/Xray-core/pull/3884#issuecomment-2439595331), which has already put many users' data security in danger in the past few years. **If you are already using 3X-UI, please switch to the following panels, which are verified to support HTTPS and SSH port forwarding only:**
   - [Marzban](https://github.com/Gozargah/Marzban)
-  - [Libertea](https://github.com/VZiChoushaDui/Libertea)
+  - [Xray-UI](https://github.com/qist/xray-ui)
+  - [Hiddify](https://github.com/hiddify/Hiddify-Manager)
 - One Click
   - [Xray-REALITY](https://github.com/zxcvos/Xray-script), [xray-reality](https://github.com/sajjaddg/xray-reality), [reality-ezpz](https://github.com/aleskxyz/reality-ezpz)
   - [Xray_bash_onekey](https://github.com/hello-yunshu/Xray_bash_onekey), [XTool](https://github.com/LordPenguin666/XTool)
@@ -67,14 +72,12 @@
   - [luci-app-xray](https://github.com/yichya/luci-app-xray) ([openwrt-xray](https://github.com/yichya/openwrt-xray))
 - Windows
   - [v2rayN](https://github.com/2dust/v2rayN)
-  - [NekoRay](https://github.com/Matsuridayo/nekoray)
   - [Furious](https://github.com/LorenEteval/Furious)
-  - [HiddifyN](https://github.com/hiddify/HiddifyN)
   - [Invisible Man - Xray](https://github.com/InvisibleManVPN/InvisibleMan-XRayClient)
 - Android
   - [v2rayNG](https://github.com/2dust/v2rayNG)
-  - [HiddifyNG](https://github.com/hiddify/HiddifyNG)
   - [X-flutter](https://github.com/XTLS/X-flutter)
+  - [SaeedDev94/Xray](https://github.com/SaeedDev94/Xray)
 - iOS & macOS arm64
   - [FoXray](https://apps.apple.com/app/foxray/id6448898396)
   - [Streisand](https://apps.apple.com/app/streisand/id6450534064)
@@ -85,7 +88,6 @@
   - [FoXray](https://apps.apple.com/app/foxray/id6448898396)
 - Linux
   - [v2rayA](https://github.com/v2rayA/v2rayA)
-  - [NekoRay](https://github.com/Matsuridayo/nekoray)
   - [Furious](https://github.com/LorenEteval/Furious)
 
 ## Others that support VLESS, XTLS, REALITY, XUDP, PLUX...
@@ -98,21 +100,15 @@
   - [XTLS/libXray](https://github.com/XTLS/libXray)
   - [xtlsapi](https://github.com/hiddify/xtlsapi)
   - [AndroidLibXrayLite](https://github.com/2dust/AndroidLibXrayLite)
-  - [XrayKit](https://github.com/arror/XrayKit)
   - [Xray-core-python](https://github.com/LorenEteval/Xray-core-python)
   - [xray-api](https://github.com/XVGuardian/xray-api)
 - [XrayR](https://github.com/XrayR-project/XrayR)
   - [XrayR-release](https://github.com/XrayR-project/XrayR-release)
   - [XrayR-V2Board](https://github.com/missuo/XrayR-V2Board)
 - [Clash.Meta](https://github.com/MetaCubeX/Clash.Meta)
-  - [Clash Verge](https://github.com/zzzgydi/clash-verge)
   - [clashN](https://github.com/2dust/clashN)
   - [Clash Meta for Android](https://github.com/MetaCubeX/ClashMetaForAndroid)
-  - [meta_for_ios](https://t.me/meta_for_ios)
 - [sing-box](https://github.com/SagerNet/sing-box)
-  - [installReality](https://github.com/BoxXt/installReality)
-  - [sbox-reality](https://github.com/Misaka-blog/sbox-reality)
-  - [sing-box-for-ios](https://github.com/SagerNet/sing-box-for-ios)
 
 ## Contributing
 

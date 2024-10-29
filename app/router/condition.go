@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/strmatcher"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
@@ -49,12 +50,12 @@ var matcherTypeMap = map[Domain_Type]strmatcher.Type{
 func domainToMatcher(domain *Domain) (strmatcher.Matcher, error) {
 	matcherType, f := matcherTypeMap[domain.Type]
 	if !f {
-		return nil, newError("unsupported domain type", domain.Type)
+		return nil, errors.New("unsupported domain type", domain.Type)
 	}
 
 	matcher, err := matcherType.New(domain.Value)
 	if err != nil {
-		return nil, newError("failed to create domain matcher").Base(err)
+		return nil, errors.New("failed to create domain matcher").Base(err)
 	}
 
 	return matcher, nil
@@ -69,7 +70,7 @@ func NewMphMatcherGroup(domains []*Domain) (*DomainMatcher, error) {
 	for _, d := range domains {
 		matcherType, f := matcherTypeMap[d.Type]
 		if !f {
-			return nil, newError("unsupported domain type", d.Type)
+			return nil, errors.New("unsupported domain type", d.Type)
 		}
 		_, err := g.AddPattern(d.Value, matcherType)
 		if err != nil {
@@ -191,18 +192,28 @@ func (v NetworkMatcher) Apply(ctx routing.Context) bool {
 }
 
 type UserMatcher struct {
-	user []string
+	user    []string
+	pattern []*regexp.Regexp
 }
 
 func NewUserMatcher(users []string) *UserMatcher {
 	usersCopy := make([]string, 0, len(users))
+	patternsCopy := make([]*regexp.Regexp, 0, len(users))
 	for _, user := range users {
 		if len(user) > 0 {
+			if len(user) > 7 && strings.HasPrefix(user, "regexp:") {
+				if re, err := regexp.Compile(user[7:]); err == nil {
+					patternsCopy = append(patternsCopy, re)
+				}
+				// Items of users slice with an invalid regexp syntax are ignored.
+				continue
+			}
 			usersCopy = append(usersCopy, user)
 		}
 	}
 	return &UserMatcher{
-		user: usersCopy,
+		user:    usersCopy,
+		pattern: patternsCopy,
 	}
 }
 
@@ -214,6 +225,11 @@ func (v *UserMatcher) Apply(ctx routing.Context) bool {
 	}
 	for _, u := range v.user {
 		if u == user {
+			return true
+		}
+	}
+	for _, re := range v.pattern {
+		if re.MatchString(user) {
 			return true
 		}
 	}

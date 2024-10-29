@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common/bytespool"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 )
 
@@ -206,6 +207,21 @@ func (b *Buffer) Len() int32 {
 	return b.end - b.start
 }
 
+// Cap returns the capacity of the buffer content.
+func (b *Buffer) Cap() int32 {
+	if b == nil {
+		return 0
+	}
+	return int32(len(b.v))
+}
+
+// NewWithSize creates a Buffer with 0 length and capacity with at least the given size.
+func NewWithSize(size int32) *Buffer {
+	return &Buffer{
+		v:         bytespool.Alloc(size),
+	}
+}
+
 // IsEmpty returns true if the buffer is empty.
 func (b *Buffer) IsEmpty() bool {
 	return b.Len() == 0
@@ -226,7 +242,7 @@ func (b *Buffer) Write(data []byte) (int, error) {
 // WriteByte writes a single byte into the buffer.
 func (b *Buffer) WriteByte(v byte) error {
 	if b.IsFull() {
-		return newError("buffer full")
+		return errors.New("buffer full")
 	}
 	b.v[b.end] = v
 	b.end++
@@ -286,7 +302,7 @@ func (b *Buffer) ReadFullFrom(reader io.Reader, size int32) (int64, error) {
 	end := b.end + size
 	if end > int32(len(b.v)) {
 		v := end
-		return 0, newError("out of bound: ", v)
+		return 0, errors.New("out of bound: ", v)
 	}
 	n, err := io.ReadFull(reader, b.v[b.end:end])
 	b.end += int32(n)

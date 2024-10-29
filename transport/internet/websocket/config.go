@@ -7,8 +7,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 )
 
-const protocolName = "websocket"
-
 func (c *Config) GetNormalizedPath() string {
 	path := c.Path
 	if path == "" {

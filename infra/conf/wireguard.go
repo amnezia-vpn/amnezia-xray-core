@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/wireguard"
 	"google.golang.org/protobuf/proto"
 )
@@ -22,14 +23,14 @@ func (c *WireGuardPeerConfig) Build() (proto.Message, error) {
 	config := new(wireguard.PeerConfig)
 
 	if c.PublicKey != "" {
-		config.PublicKey, err = parseWireGuardKey(c.PublicKey)
+		config.PublicKey, err = ParseWireGuardKey(c.PublicKey)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if c.PreSharedKey != "" {
-		config.PreSharedKey, err = parseWireGuardKey(c.PreSharedKey)
+		config.PreSharedKey, err = ParseWireGuardKey(c.PreSharedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -50,7 +51,7 @@ func (c *WireGuardPeerConfig) Build() (proto.Message, error) {
 type WireGuardConfig struct {
 	IsClient bool `json:""`
 
-	KernelMode     *bool                  `json:"kernelMode"`
+	NoKernelTun    bool                   `json:"noKernelTun"`
 	SecretKey      string                 `json:"secretKey"`
 	Address        []string               `json:"address"`
 	Peers          []*WireGuardPeerConfig `json:"peers"`
@@ -64,7 +65,7 @@ func (c *WireGuardConfig) Build() (proto.Message, error) {
 	config := new(wireguard.DeviceConfig)
 
 	var err error
-	config.SecretKey, err = parseWireGuardKey(c.SecretKey)
+	config.SecretKey, err = ParseWireGuardKey(c.SecretKey)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func (c *WireGuardConfig) Build() (proto.Message, error) {
 	config.NumWorkers = c.NumWorkers
 
 	if len(c.Reserved) != 0 && len(c.Reserved) != 3 {
-		return nil, newError(`"reserved" should be empty or 3 bytes`)
+		return nil, errors.New(`"reserved" should be empty or 3 bytes`)
 	}
 	config.Reserved = c.Reserved
 
@@ -113,26 +114,16 @@ func (c *WireGuardConfig) Build() (proto.Message, error) {
 	case "forceipv6v4":
 		config.DomainStrategy = wireguard.DeviceConfig_FORCE_IP64
 	default:
-		return nil, newError("unsupported domain strategy: ", c.DomainStrategy)
+		return nil, errors.New("unsupported domain strategy: ", c.DomainStrategy)
 	}
 
 	config.IsClient = c.IsClient
-	if c.KernelMode != nil {
-		config.KernelMode = *c.KernelMode
-		if config.KernelMode && !wireguard.KernelTunSupported() {
-			newError("kernel mode is not supported on your OS or permission is insufficient").AtWarning().WriteToLog()
-		}
-	} else {
-		config.KernelMode = wireguard.KernelTunSupported()
-		if config.KernelMode {
-			newError("kernel mode is enabled as it's supported and permission is sufficient").AtDebug().WriteToLog()
-		}
-	}
+	config.NoKernelTun = c.NoKernelTun
 
 	return config, nil
 }
 
-func parseWireGuardKey(str string) (string, error) {
+func ParseWireGuardKey(str string) (string, error) {
 	var err error
 
 	if len(str)%2 == 0 {
@@ -153,5 +144,5 @@ func parseWireGuardKey(str string) (string, error) {
 		return hex.EncodeToString(dat), nil
 	}
 
-	return "", newError("failed to deserialize key").Base(err)
+	return "", errors.New("failed to deserialize key").Base(err)
 }

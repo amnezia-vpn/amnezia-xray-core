@@ -9,8 +9,6 @@
 // connections.
 package core
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 import (
 	"fmt"
 	"runtime"
@@ -19,9 +17,9 @@ import (
 )
 
 var (
-	Version_x byte = 1
-	Version_y byte = 8
-	Version_z byte = 12
+	Version_x byte = 24
+	Version_y byte = 10
+	Version_z byte = 16
 )
 
 var (

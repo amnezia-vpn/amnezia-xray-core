@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/uuid"
@@ -56,10 +57,6 @@ func (c *VMessDetourConfig) Build() *inbound.DetourConfig {
 	}
 }
 
-type FeaturesConfig struct {
-	Detour *VMessDetourConfig `json:"detour"`
-}
-
 type VMessDefaultConfig struct {
 	Level byte `json:"level"`
 }
@@ -73,7 +70,6 @@ func (c *VMessDefaultConfig) Build() *inbound.DefaultConfig {
 
 type VMessInboundConfig struct {
 	Users        []json.RawMessage   `json:"clients"`
-	Features     *FeaturesConfig     `json:"features"`
 	Defaults     *VMessDefaultConfig `json:"default"`
 	DetourConfig *VMessDetourConfig  `json:"detour"`
 }
@@ -88,19 +84,17 @@ func (c *VMessInboundConfig) Build() (proto.Message, error) {
 
 	if c.DetourConfig != nil {
 		config.Detour = c.DetourConfig.Build()
-	} else if c.Features != nil && c.Features.Detour != nil {
-		config.Detour = c.Features.Detour.Build()
 	}
 
 	config.User = make([]*protocol.User, len(c.Users))
 	for idx, rawData := range c.Users {
 		user := new(protocol.User)
 		if err := json.Unmarshal(rawData, user); err != nil {
-			return nil, newError("invalid VMess user").Base(err)
+			return nil, errors.New("invalid VMess user").Base(err)
 		}
 		account := new(VMessAccount)
 		if err := json.Unmarshal(rawData, account); err != nil {
-			return nil, newError("invalid VMess user").Base(err)
+			return nil, errors.New("invalid VMess user").Base(err)
 		}
 
 		u, err := uuid.ParseString(account.ID)
@@ -131,15 +125,15 @@ func (c *VMessOutboundConfig) Build() (proto.Message, error) {
 	config := new(outbound.Config)
 
 	if len(c.Receivers) == 0 {
-		return nil, newError("0 VMess receiver configured")
+		return nil, errors.New("0 VMess receiver configured")
 	}
 	serverSpecs := make([]*protocol.ServerEndpoint, len(c.Receivers))
 	for idx, rec := range c.Receivers {
 		if len(rec.Users) == 0 {
-			return nil, newError("0 user configured for VMess outbound")
+			return nil, errors.New("0 user configured for VMess outbound")
 		}
 		if rec.Address == nil {
-			return nil, newError("address is not set in VMess outbound config")
+			return nil, errors.New("address is not set in VMess outbound config")
 		}
 		spec := &protocol.ServerEndpoint{
 			Address: rec.Address.Build(),
@@ -148,11 +142,11 @@ func (c *VMessOutboundConfig) Build() (proto.Message, error) {
 		for _, rawUser := range rec.Users {
 			user := new(protocol.User)
 			if err := json.Unmarshal(rawUser, user); err != nil {
-				return nil, newError("invalid VMess user").Base(err)
+				return nil, errors.New("invalid VMess user").Base(err)
 			}
 			account := new(VMessAccount)
 			if err := json.Unmarshal(rawUser, account); err != nil {
-				return nil, newError("invalid VMess user").Base(err)
+				return nil, errors.New("invalid VMess user").Base(err)
 			}
 
 			u, err := uuid.ParseString(account.ID)

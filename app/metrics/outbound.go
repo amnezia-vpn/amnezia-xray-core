@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net/cnc"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/signal/done"
@@ -31,7 +32,7 @@ func (l *OutboundListener) add(conn net.Conn) {
 func (l *OutboundListener) Accept() (net.Conn, error) {
 	select {
 	case <-l.done.Wait():
-		return nil, newError("listen closed")
+		return nil, errors.New("listen closed")
 	case c := <-l.buffer:
 		return c, nil
 	}

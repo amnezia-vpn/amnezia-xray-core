@@ -49,6 +49,7 @@ type Handler struct {
 	server          net.Destination
 	timeout         time.Duration
 	nonIPQuery      string
+	blockTypes       []int32
 }
 
 func (h *Handler) Init(config *Config, dnsClient dns.Client, policyManager policy.Manager) error {
@@ -63,6 +64,7 @@ func (h *Handler) Init(config *Config, dnsClient dns.Client, policyManager polic
 		h.server = config.Server.AsDestination()
 	}
 	h.nonIPQuery = config.Non_IPQuery
+	h.blockTypes = config.BlockTypes
 	return nil
 }
 
@@ -74,22 +76,22 @@ func parseIPQuery(b []byte) (r bool, domain string, id uint16, qType dnsmessage.
 	var parser dnsmessage.Parser
 	header, err := parser.Start(b)
 	if err != nil {
-		newError("parser start").Base(err).WriteToLog()
+		errors.LogInfoInner(context.Background(), err, "parser start")
 		return
 	}
 
 	id = header.ID
 	q, err := parser.Question()
 	if err != nil {
-		newError("question").Base(err).WriteToLog()
+		errors.LogInfoInner(context.Background(), err, "question")
 		return
 	}
+	domain = q.Name.String()
 	qType = q.Type
 	if qType != dnsmessage.TypeA && qType != dnsmessage.TypeAAAA {
 		return
 	}
 
-	domain = q.Name.String()
 	r = true
 	return
 }
@@ -99,7 +101,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, d internet.
 	outbounds := session.OutboundsFromContext(ctx)
 	ob := outbounds[len(outbounds)-1]
 	if !ob.Target.IsValid() {
-		return newError("invalid outbound")
+		return errors.New("invalid outbound")
 	}
 	ob.Name = "dns"
 
@@ -116,7 +118,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, d internet.
 		dest.Port = h.server.Port
 	}
 
-	newError("handling DNS traffic to ", dest).WriteToLog(session.ExportIDToError(ctx))
+	errors.LogInfo(ctx, "handling DNS traffic to ", dest)
 
 	conn := &outboundConn{
 		dialer: func() (stat.Connection, error) {
@@ -181,10 +183,18 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, d internet.
 
 			if !h.isOwnLink(ctx) {
 				isIPQuery, domain, id, qType := parseIPQuery(b.Bytes())
+				if len(h.blockTypes) > 0 {
+					for _, blocktype := range h.blockTypes {
+						if blocktype == int32(qType) {
+							errors.LogInfo(ctx, "blocked type ", qType, " query for domain ", domain)
+							return nil
+						}
+					}
+				}
 				if isIPQuery {
 					go h.handleIPQuery(id, qType, domain, writer)
 				}
-				if isIPQuery || h.nonIPQuery == "drop" || qType == 65 {
+				if isIPQuery || h.nonIPQuery == "drop" {
 					b.Release()
 					continue
 				}
@@ -216,7 +226,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, d internet.
 	}
 
 	if err := task.Run(ctx, request, response); err != nil {
-		return newError("connection ends").Base(err)
+		return errors.New("connection ends").Base(err)
 	}
 
 	return nil
@@ -245,7 +255,7 @@ func (h *Handler) handleIPQuery(id uint16, qType dnsmessage.Type, domain string,
 
 	rcode := dns.RCodeFromError(err)
 	if rcode == 0 && len(ips) == 0 && !errors.AllEqual(dns.ErrEmptyResponse, errors.Cause(err)) {
-		newError("ip query").Base(err).WriteToLog()
+		errors.LogInfoInner(context.Background(), err, "ip query")
 		return
 	}
 
@@ -297,14 +307,14 @@ func (h *Handler) handleIPQuery(id uint16, qType dnsmessage.Type, domain string,
 	}
 	msgBytes, err := builder.Finish()
 	if err != nil {
-		newError("pack message").Base(err).WriteToLog()
+		errors.LogInfoInner(context.Background(), err, "pack message")
 		b.Release()
 		return
 	}
 	b.Resize(0, int32(len(msgBytes)))
 
 	if err := writer.WriteMessage(b); err != nil {
-		newError("write IP answer").Base(err).WriteToLog()
+		errors.LogInfoInner(context.Background(), err, "write IP answer")
 	}
 }
 
@@ -332,7 +342,7 @@ func (c *outboundConn) Write(b []byte) (int, error) {
 	if c.conn == nil {
 		if err := c.dial(); err != nil {
 			c.access.Unlock()
-			newError("failed to dial outbound connection").Base(err).AtWarning().WriteToLog()
+			errors.LogWarningInner(context.Background(), err, "failed to dial outbound connection")
 			return len(b), nil
 		}
 	}

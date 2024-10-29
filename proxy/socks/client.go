@@ -6,6 +6,7 @@ import (
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/retry"
@@ -13,7 +14,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/signal"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
 	"github.com/amnezia-vpn/amnezia-xray-core/core"
-	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/policy"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
@@ -24,8 +24,6 @@ import (
 type Client struct {
 	serverPicker  protocol.ServerPicker
 	policyManager policy.Manager
-	version       Version
-	dns           dns.Client
 }
 
 // NewClient create a new Socks5 client based on the given config.
@@ -34,22 +32,18 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	for _, rec := range config.Server {
 		s, err := protocol.NewServerSpecFromPB(rec)
 		if err != nil {
-			return nil, newError("failed to get server spec").Base(err)
+			return nil, errors.New("failed to get server spec").Base(err)
 		}
 		serverList.AddServer(s)
 	}
 	if serverList.Size() == 0 {
-		return nil, newError("0 target server")
+		return nil, errors.New("0 target server")
 	}
 
 	v := core.MustFromContext(ctx)
 	c := &Client{
 		serverPicker:  protocol.NewRoundRobinServerPicker(serverList),
 		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
-		version:       config.Version,
-	}
-	if config.Version == Version_SOCKS4 {
-		c.dns = v.GetFeature(dns.ClientType()).(dns.Client)
 	}
 
 	return c, nil
@@ -60,7 +54,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	outbounds := session.OutboundsFromContext(ctx)
 	ob := outbounds[len(outbounds)-1]
 	if !ob.Target.IsValid() {
-		return newError("target not specified.")
+		return errors.New("target not specified.")
 	}
 	ob.Name = "socks"
 	ob.CanSpliceCopy = 2
@@ -85,12 +79,12 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 
 		return nil
 	}); err != nil {
-		return newError("failed to find an available destination").Base(err)
+		return errors.New("failed to find an available destination").Base(err)
 	}
 
 	defer func() {
 		if err := conn.Close(); err != nil {
-			newError("failed to closed connection").Base(err).WriteToLog(session.ExportIDToError(ctx))
+			errors.LogInfoInner(ctx, err, "failed to closed connection")
 		}
 	}()
 
@@ -101,30 +95,6 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		Command: protocol.RequestCommandTCP,
 		Address: destination.Address,
 		Port:    destination.Port,
-	}
-
-	switch c.version {
-	case Version_SOCKS4:
-		if request.Address.Family().IsDomain() {
-			ips, err := c.dns.LookupIP(request.Address.Domain(), dns.IPOption{
-				IPv4Enable: true,
-			})
-			if err != nil {
-				return err
-			} else if len(ips) == 0 {
-				return dns.ErrEmptyResponse
-			}
-			request.Address = net.IPAddress(ips[0])
-		}
-		fallthrough
-	case Version_SOCKS4A:
-		request.Version = socks4Version
-
-		if destination.Network == net.Network_UDP {
-			return newError("udp is not supported in socks4")
-		} else if destination.Address.Family().IsIPv6() {
-			return newError("ipv6 is not supported in socks4")
-		}
 	}
 
 	if destination.Network == net.Network_UDP {
@@ -138,11 +108,11 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	}
 
 	if err := conn.SetDeadline(time.Now().Add(p.Timeouts.Handshake)); err != nil {
-		newError("failed to set deadline for handshake").Base(err).WriteToLog(session.ExportIDToError(ctx))
+		errors.LogInfoInner(ctx, err, "failed to set deadline for handshake")
 	}
 	udpRequest, err := ClientHandshake(request, conn, conn)
 	if err != nil {
-		return newError("failed to establish connection to server").AtWarning().Base(err)
+		return errors.New("failed to establish connection to server").AtWarning().Base(err)
 	}
 	if udpRequest != nil {
 		if udpRequest.Address == net.AnyIP || udpRequest.Address == net.AnyIPv6 {
@@ -151,7 +121,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	}
 
 	if err := conn.SetDeadline(time.Time{}); err != nil {
-		newError("failed to clear deadline after handshake").Base(err).WriteToLog(session.ExportIDToError(ctx))
+		errors.LogInfoInner(ctx, err, "failed to clear deadline after handshake")
 	}
 
 	var newCtx context.Context
@@ -182,7 +152,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	} else if request.Command == protocol.RequestCommandUDP {
 		udpConn, err := dialer.Dial(ctx, udpRequest.Destination())
 		if err != nil {
-			return newError("failed to create UDP connection").Base(err)
+			return errors.New("failed to create UDP connection").Base(err)
 		}
 		defer udpConn.Close()
 		requestFunc = func() error {
@@ -203,7 +173,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 
 	responseDonePost := task.OnSuccess(responseFunc, task.Close(link.Writer))
 	if err := task.Run(ctx, requestFunc, responseDonePost); err != nil {
-		return newError("connection ends").Base(err)
+		return errors.New("connection ends").Base(err)
 	}
 
 	return nil

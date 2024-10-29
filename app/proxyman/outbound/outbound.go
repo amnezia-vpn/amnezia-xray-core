@@ -1,7 +1,5 @@
 package outbound
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 import (
 	"context"
 	"sort"
@@ -115,7 +113,7 @@ func (m *Manager) AddHandler(ctx context.Context, handler outbound.Handler) erro
 	tag := handler.Tag()
 	if len(tag) > 0 {
 		if _, found := m.taggedHandler[tag]; found {
-			return newError("existing tag found: " + tag)
+			return errors.New("existing tag found: " + tag)
 		}
 		m.taggedHandler[tag] = handler
 	} else {

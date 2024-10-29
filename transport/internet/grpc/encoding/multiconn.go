@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	xnet "github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net/cnc"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/signal/done"
@@ -74,7 +75,7 @@ func (h *MultiHunkReaderWriter) forceFetch() error {
 			return err
 		}
 
-		return newError("failed to fetch hunk from gRPC tunnel").Base(err)
+		return errors.New("failed to fetch hunk from gRPC tunnel").Base(err)
 	}
 
 	h.buf = hunk.Data
