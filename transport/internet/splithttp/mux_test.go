@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	. "github.com/xtls/xray-core/transport/internet/splithttp"
+	. "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/splithttp"
 )
 
 type fakeRoundTripper struct{}

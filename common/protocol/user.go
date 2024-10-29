@@ -1,6 +1,6 @@
 package protocol
 
-import "github.com/xtls/xray-core/common/errors"
+import "github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 
 func (u *User) GetTypedAccount() (Account, error) {
 	if u.GetAccount() == nil {
