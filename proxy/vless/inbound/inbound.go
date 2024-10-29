@@ -162,7 +162,7 @@ func New(ctx context.Context, config *Config, dc dns.Client, validator vless.Val
 
 		listener, err := net.Listen("unix", socketPath)
 		if err != nil {
-			newError("error setting up UNIX domain socket listener: %v").Base(err).AtError().WriteToLog()
+			errors.LogError(ctx, "error setting up UNIX domain socket listener: ", err.Error())
 			return nil, err
 		}
 
@@ -170,7 +170,7 @@ func New(ctx context.Context, config *Config, dc dns.Client, validator vless.Val
 
 		handler.unixListener = listener
 
-		go handler.acceptUnixSocketClients()
+		go handler.acceptUnixSocketClients(ctx)
 	}
 
 	return handler, nil
@@ -256,7 +256,7 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 		err = errors.New("fallback directly")
 	} else {
 		notifyInvalidUserIdCallback := func(userId uuid.UUID) {
-			h.notifyUnknownUserAttempt(connection, userId)
+			h.notifyUnknownUserAttempt(ctx, connection, userId)
 		}
 		request, requestAddons, isfb, err = encoding.DecodeRequestHeader(isfb, first, reader, h.validator, notifyInvalidUserIdCallback)
 	}
@@ -635,24 +635,24 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 	return nil
 }
 
-func (h *Handler) acceptUnixSocketClients() {
+func (h *Handler) acceptUnixSocketClients(ctx context.Context) {
 	for {
 		conn, err := h.unixListener.Accept()
 		if err != nil {
-			newError("error accepting UNIX socket connection: %v").Base(err).AtDebug().WriteToLog()
+			errors.LogDebug(ctx, "error accepting UNIX socket connection: ", err.Error())
 			continue
 		}
-		newError("connected notifications UNIX socket").AtDebug().WriteToLog()
+		errors.LogDebug(ctx, "connected notifications UNIX socket")
 
 		h.clientMutex.Lock()
 		h.clientConnections[conn] = struct{}{}
 		h.clientMutex.Unlock()
 
-		go h.handleUnixSocketClient(conn)
+		go h.handleUnixSocketClient(ctx, conn)
 	}
 }
 
-func (h *Handler) handleUnixSocketClient(conn net.Conn) {
+func (h *Handler) handleUnixSocketClient(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 	buffer := make([]byte, 1)
 
@@ -665,13 +665,13 @@ func (h *Handler) handleUnixSocketClient(conn net.Conn) {
 				h.clientMutex.Unlock()
 				return
 			}
-			newError("error reading from client: %v").Base(err).AtError().WriteToLog()
+			errors.LogError(ctx, "error reading from client: ", err.Error())
 			return
 		}
 	}
 }
 
-func (h *Handler) notifyUnknownUserAttempt(conn net.Conn, attemptedUUID uuid.UUID) {
+func (h *Handler) notifyUnknownUserAttempt(ctx context.Context, conn net.Conn, attemptedUUID uuid.UUID) {
 	attemptedUUIDStr := attemptedUUID.String()
 	currentTime := time.Now()
 	h.notificationMutex.Lock()
@@ -704,7 +704,7 @@ func (h *Handler) notifyUnknownUserAttempt(conn net.Conn, attemptedUUID uuid.UUI
 
 	data, err := proto.Marshal(attempt)
 	if err != nil {
-		newError("error marshalling protobuf message: %v").Base(err).AtError().WriteToLog()
+		errors.LogError(ctx, "error marshalling protobuf message: ", err.Error())
 		return
 	}
 	lengthBuf := make([]byte, 4)
@@ -715,10 +715,10 @@ func (h *Handler) notifyUnknownUserAttempt(conn net.Conn, attemptedUUID uuid.UUI
 	defer h.clientMutex.Unlock()
 
 	for clientConn := range h.clientConnections {
-		newError("writing data to UNIX socket client connection").AtDebug().WriteToLog()
+		errors.LogDebug(ctx, "writing data to UNIX socket client connection")
 		_, err := clientConn.Write(message)
 		if err != nil {
-			newError("error writing to client: %v").Base(err).AtError().WriteToLog()
+			errors.LogError(ctx, "error writing to client: ", err.Error())
 			clientConn.Close()
 			delete(h.clientConnections, clientConn)
 		}
