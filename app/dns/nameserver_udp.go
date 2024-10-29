@@ -13,7 +13,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol/dns"
 	udp_proto "github.com/amnezia-vpn/amnezia-xray-core/common/protocol/udp"
-	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/signal/pubsub"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
 	dns_feature "github.com/amnezia-vpn/amnezia-xray-core/features/dns"

@@ -95,7 +95,7 @@ func DecodeRequestHeader(isfb bool, first *buf.Buffer, reader io.Reader, validat
 
 		if request.User = validator.Get(id); request.User == nil {
 			invalidUserIdCallback(id)
-			return nil, nil, isfb, newError("invalid request user id")
+			return nil, nil, isfb, errors.New("invalid request user id")
 		}
 
 		if isfb {

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/xtls/xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"golang.org/x/sys/unix"
 )
 
