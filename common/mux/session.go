@@ -1,6 +1,7 @@
 package mux
 
 import (
+	"context"
 	"io"
 	"runtime"
 	"sync"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/pipe"
@@ -180,7 +182,7 @@ func (s *Session) Close(locked bool) error {
 		if s.XUDP.Status == Active {
 			s.XUDP.Expire = time.Now().Add(time.Minute)
 			s.XUDP.Status = Expiring
-			newError("XUDP put ", s.XUDP.GlobalID).AtDebug().WriteToLog()
+			errors.LogDebug(context.Background(), "XUDP put ", s.XUDP.GlobalID)
 		}
 		XUDPManager.Unlock()
 	}
@@ -230,7 +232,7 @@ func init() {
 				if x.Status == Expiring && now.After(x.Expire) {
 					x.Interrupt()
 					delete(XUDPManager.Map, id)
-					newError("XUDP del ", id).AtDebug().WriteToLog()
+					errors.LogDebug(context.Background(), "XUDP del ", id)
 				}
 			}
 			XUDPManager.Unlock()

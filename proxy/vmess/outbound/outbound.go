@@ -1,7 +1,5 @@
 package outbound
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 import (
 	"context"
 	"crypto/hmac"
@@ -11,6 +9,7 @@ import (
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/platform"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
@@ -42,7 +41,7 @@ func New(ctx context.Context, config *Config) (*Handler, error) {
 	for _, rec := range config.Receiver {
 		s, err := protocol.NewServerSpecFromPB(rec)
 		if err != nil {
-			return nil, newError("failed to parse server spec").Base(err)
+			return nil, errors.New("failed to parse server spec").Base(err)
 		}
 		serverList.AddServer(s)
 	}
@@ -63,7 +62,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	outbounds := session.OutboundsFromContext(ctx)
 	ob := outbounds[len(outbounds)-1]
 	if !ob.Target.IsValid() {
-		return newError("target not specified").AtError()
+		return errors.New("target not specified").AtError()
 	}
 	ob.Name = "vmess"
 	ob.CanSpliceCopy = 3
@@ -81,12 +80,12 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		return nil
 	})
 	if err != nil {
-		return newError("failed to find an available destination").Base(err).AtWarning()
+		return errors.New("failed to find an available destination").Base(err).AtWarning()
 	}
 	defer conn.Close()
 
 	target := ob.Target
-	newError("tunneling request to ", target, " via ", rec.Destination().NetAddr()).WriteToLog(session.ExportIDToError(ctx))
+	errors.LogInfo(ctx, "tunneling request to ", target, " via ", rec.Destination().NetAddr())
 
 	command := protocol.RequestCommandTCP
 	if target.Network == net.Network_UDP {
@@ -163,19 +162,19 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 
 		writer := buf.NewBufferedWriter(buf.NewWriter(conn))
 		if err := session.EncodeRequestHeader(request, writer); err != nil {
-			return newError("failed to encode request").Base(err).AtWarning()
+			return errors.New("failed to encode request").Base(err).AtWarning()
 		}
 
 		bodyWriter, err := session.EncodeRequestBody(request, writer)
 		if err != nil {
-			return newError("failed to start encoding").Base(err)
+			return errors.New("failed to start encoding").Base(err)
 		}
 		bodyWriter2 := bodyWriter
 		if request.Command == protocol.RequestCommandMux && request.Port == 666 {
 			bodyWriter = xudp.NewPacketWriter(bodyWriter, target, xudp.GetGlobalID(ctx))
 		}
 		if err := buf.CopyOnceTimeout(input, bodyWriter, time.Millisecond*100); err != nil && err != buf.ErrNotTimeoutReader && err != buf.ErrReadTimeout {
-			return newError("failed to write first payload").Base(err)
+			return errors.New("failed to write first payload").Base(err)
 		}
 
 		if err := writer.SetBuffered(false); err != nil {
@@ -201,13 +200,13 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		reader := &buf.BufferedReader{Reader: buf.NewReader(conn)}
 		header, err := session.DecodeResponseHeader(reader)
 		if err != nil {
-			return newError("failed to read header").Base(err)
+			return errors.New("failed to read header").Base(err)
 		}
 		h.handleCommand(rec.Destination(), header.Command)
 
 		bodyReader, err := session.DecodeResponseBody(request, reader)
 		if err != nil {
-			return newError("failed to start encoding response").Base(err)
+			return errors.New("failed to start encoding response").Base(err)
 		}
 		if request.Command == protocol.RequestCommandMux && request.Port == 666 {
 			bodyReader = xudp.NewPacketReader(&buf.BufferedReader{Reader: bodyReader})
@@ -222,7 +221,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 
 	responseDonePost := task.OnSuccess(responseDone, task.Close(output))
 	if err := task.Run(ctx, requestDone, responseDonePost); err != nil {
-		return newError("connection ends").Base(err)
+		return errors.New("connection ends").Base(err)
 	}
 
 	return nil

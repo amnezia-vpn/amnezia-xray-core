@@ -1,7 +1,5 @@
 package http
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 import (
 	"bufio"
 	"bytes"
@@ -14,6 +12,7 @@ import (
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 )
 
 const (
@@ -28,9 +27,9 @@ const (
 )
 
 var (
-	ErrHeaderToLong = newError("Header too long.")
+	ErrHeaderToLong = errors.New("Header too long.")
 
-	ErrHeaderMisMatch = newError("Header Mismatch.")
+	ErrHeaderMisMatch = errors.New("Header Mismatch.")
 )
 
 type Reader interface {

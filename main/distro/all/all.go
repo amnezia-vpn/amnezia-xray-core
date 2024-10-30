@@ -50,13 +50,12 @@ import (
 	_ "github.com/amnezia-vpn/amnezia-xray-core/proxy/wireguard"
 
 	// Transports
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/domainsocket"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/grpc"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/http"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/httpupgrade"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/kcp"
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/quic"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/reality"
+	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/splithttp"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tcp"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/udp"

@@ -4,21 +4,20 @@ package session // import "github.com/amnezia-vpn/amnezia-xray-core/common/sessi
 import (
 	"context"
 	"math/rand"
+	"sync"
 
+	c "github.com/amnezia-vpn/amnezia-xray-core/common/ctx"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/signal"
 )
 
-// ID of a session.
-type ID uint32
-
 // NewID generates a new ID. The generated ID is high likely to be unique, but not cryptographically secure.
 // The generated ID will never be 0.
-func NewID() ID {
+func NewID() c.ID {
 	for {
-		id := ID(rand.Uint32())
+		id := c.ID(rand.Uint32())
 		if id != 0 {
 			return id
 		}
@@ -28,7 +27,7 @@ func NewID() ID {
 // ExportIDToError transfers session.ID into an error object, for logging purpose.
 // This can be used with error.WriteToLog().
 func ExportIDToError(ctx context.Context) errors.ExportOption {
-	id := IDFromContext(ctx)
+	id := c.IDFromContext(ctx)
 	return func(h *errors.ExportOptionHolder) {
 		h.SessionID = uint32(id)
 	}
@@ -93,6 +92,10 @@ type Content struct {
 	Attributes map[string]string
 
 	SkipDNSResolve bool
+
+	mu sync.Mutex
+
+	isLocked bool
 }
 
 // Sockopt is the settings for socket connection.
@@ -101,8 +104,22 @@ type Sockopt struct {
 	Mark int32
 }
 
+// Some how when using mux, there will be a same ctx between different requests
+// This will cause problem as it's designed for single request, like concurrent map writes
+// Add a Mutex as a temp solution
+
 // SetAttribute attaches additional string attributes to content.
 func (c *Content) SetAttribute(name string, value string) {
+	if c.isLocked {
+		errors.LogError(context.Background(), "Multiple goroutines are tring to access one routing content, tring to write ", name, ":", value)
+	}
+	c.mu.Lock()
+	c.isLocked = true
+	defer func() {
+		c.isLocked = false
+		c.mu.Unlock()
+	}()
+
 	if c.Attributes == nil {
 		c.Attributes = make(map[string]string)
 	}
@@ -111,8 +128,24 @@ func (c *Content) SetAttribute(name string, value string) {
 
 // Attribute retrieves additional string attributes from content.
 func (c *Content) Attribute(name string) string {
+	c.mu.Lock()
+	c.isLocked = true
+	defer func() {
+		c.isLocked = false
+		c.mu.Unlock()
+	}()
 	if c.Attributes == nil {
 		return ""
 	}
 	return c.Attributes[name]
+}
+
+func (c *Content) AttributeLen() int {
+	c.mu.Lock()
+	c.isLocked = true
+	defer func() {
+		c.isLocked = false
+		c.mu.Unlock()
+	}()
+	return len(c.Attributes)
 }

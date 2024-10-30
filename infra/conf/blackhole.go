@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/blackhole"
 	"google.golang.org/protobuf/proto"
@@ -29,7 +30,7 @@ func (v *BlackholeConfig) Build() (proto.Message, error) {
 	if v.Response != nil {
 		response, _, err := configLoader.Load(v.Response)
 		if err != nil {
-			return nil, newError("Config: Failed to parse Blackhole response config.").Base(err)
+			return nil, errors.New("Config: Failed to parse Blackhole response config.").Base(err)
 		}
 		responseSettings, err := response.(Buildable).Build()
 		if err != nil {

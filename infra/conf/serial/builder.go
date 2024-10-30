@@ -1,49 +1,51 @@
 package serial
 
 import (
+	"context"
 	"io"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	creflect "github.com/amnezia-vpn/amnezia-xray-core/common/reflect"
 	"github.com/amnezia-vpn/amnezia-xray-core/core"
 	"github.com/amnezia-vpn/amnezia-xray-core/infra/conf"
 	"github.com/amnezia-vpn/amnezia-xray-core/main/confloader"
 )
 
-func MergeConfigFromFiles(files []string, formats []string) (string, error) {
-	c, err := mergeConfigs(files, formats)
+func MergeConfigFromFiles(files []*core.ConfigSource) (string, error) {
+	c, err := mergeConfigs(files)
 	if err != nil {
 		return "", err
 	}
 
-	if j, ok := creflect.MarshalToJson(c); ok {
+	if j, ok := creflect.MarshalToJson(c, true); ok {
 		return j, nil
 	}
-	return "", newError("marshal to json failed.").AtError()
+	return "", errors.New("marshal to json failed.").AtError()
 }
 
-func mergeConfigs(files []string, formats []string) (*conf.Config, error) {
+func mergeConfigs(files []*core.ConfigSource) (*conf.Config, error) {
 	cf := &conf.Config{}
 	for i, file := range files {
-		newError("Reading config: ", file).AtInfo().WriteToLog()
-		r, err := confloader.LoadConfig(file)
+		errors.LogInfo(context.Background(), "Reading config: ", file)
+		r, err := confloader.LoadConfig(file.Name)
 		if err != nil {
-			return nil, newError("failed to read config: ", file).Base(err)
+			return nil, errors.New("failed to read config: ", file).Base(err)
 		}
-		c, err := ReaderDecoderByFormat[formats[i]](r)
+		c, err := ReaderDecoderByFormat[file.Format](r)
 		if err != nil {
-			return nil, newError("failed to decode config: ", file).Base(err)
+			return nil, errors.New("failed to decode config: ", file).Base(err)
 		}
 		if i == 0 {
 			*cf = *c
 			continue
 		}
-		cf.Override(c, file)
+		cf.Override(c, file.Name)
 	}
 	return cf, nil
 }
 
-func BuildConfig(files []string, formats []string) (*core.Config, error) {
-	config, err := mergeConfigs(files, formats)
+func BuildConfig(files []*core.ConfigSource) (*core.Config, error) {
+	config, err := mergeConfigs(files)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/http"
@@ -22,7 +23,6 @@ func (v *HTTPAccount) Build() *http.Account {
 }
 
 type HTTPServerConfig struct {
-	Timeout     uint32         `json:"timeout"`
 	Accounts    []*HTTPAccount `json:"accounts"`
 	Transparent bool           `json:"allowTransparent"`
 	UserLevel   uint32         `json:"userLevel"`
@@ -30,7 +30,6 @@ type HTTPServerConfig struct {
 
 func (c *HTTPServerConfig) Build() (proto.Message, error) {
 	config := &http.ServerConfig{
-		Timeout:          c.Timeout,
 		AllowTransparent: c.Transparent,
 		UserLevel:        c.UserLevel,
 	}
@@ -67,11 +66,11 @@ func (v *HTTPClientConfig) Build() (proto.Message, error) {
 		for _, rawUser := range serverConfig.Users {
 			user := new(protocol.User)
 			if err := json.Unmarshal(rawUser, user); err != nil {
-				return nil, newError("failed to parse HTTP user").Base(err).AtError()
+				return nil, errors.New("failed to parse HTTP user").Base(err).AtError()
 			}
 			account := new(HTTPAccount)
 			if err := json.Unmarshal(rawUser, account); err != nil {
-				return nil, newError("failed to parse HTTP account").Base(err).AtError()
+				return nil, errors.New("failed to parse HTTP account").Base(err).AtError()
 			}
 			user.Account = serial.ToTypedMessage(account.Build())
 			server.User = append(server.User, user)

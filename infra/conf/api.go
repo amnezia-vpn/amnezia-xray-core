@@ -9,6 +9,7 @@ import (
 	handlerservice "github.com/amnezia-vpn/amnezia-xray-core/app/proxyman/command"
 	routerservice "github.com/amnezia-vpn/amnezia-xray-core/app/router/command"
 	statsservice "github.com/amnezia-vpn/amnezia-xray-core/app/stats/command"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 )
 
@@ -20,7 +21,7 @@ type APIConfig struct {
 
 func (c *APIConfig) Build() (*commander.Config, error) {
 	if c.Tag == "" {
-		return nil, newError("API tag can't be empty.")
+		return nil, errors.New("API tag can't be empty.")
 	}
 
 	services := make([]*serial.TypedMessage, 0, 16)
