@@ -1,7 +1,5 @@
 package freedom
 
-//go:generate go run github.com/amnezia-vpn/amnezia-xray-core/common/errors/errorgen
-
 import (
 	"context"
 	"crypto/rand"
@@ -12,6 +10,7 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/dice"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/platform"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/retry"
@@ -26,6 +25,7 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/transport"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	"github.com/pires/go-proxyproto"
 )
 
@@ -67,9 +67,6 @@ func (h *Handler) Init(config *Config, pm policy.Manager, d dns.Client) error {
 
 func (h *Handler) policy() policy.Session {
 	p := h.policyManager.ForLevel(h.config.UserLevel)
-	if h.config.Timeout > 0 && h.config.UserLevel == 0 {
-		p.Timeouts.ConnectionIdle = time.Duration(h.config.Timeout) * time.Second
-	}
 	return p
 }
 
@@ -87,7 +84,7 @@ func (h *Handler) resolveIP(ctx context.Context, domain string, localAddr net.Ad
 		}
 	}
 	if err != nil {
-		newError("failed to get IP address for domain ", domain).Base(err).WriteToLog(session.ExportIDToError(ctx))
+		errors.LogInfoInner(ctx, err, "failed to get IP address for domain ", domain)
 	}
 	if len(ips) == 0 {
 		return nil
@@ -109,7 +106,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	outbounds := session.OutboundsFromContext(ctx)
 	ob := outbounds[len(outbounds)-1]
 	if !ob.Target.IsValid() {
-		return newError("target not specified.")
+		return errors.New("target not specified.")
 	}
 	ob.Name = "freedom"
 	ob.CanSpliceCopy = 1
@@ -143,7 +140,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 					Address: ip,
 					Port:    dialDest.Port,
 				}
-				newError("dialing to ", dialDest).WriteToLog(session.ExportIDToError(ctx))
+				errors.LogInfo(ctx, "dialing to ", dialDest)
 			} else if h.config.forceIP() {
 				return dns.ErrEmptyResponse
 			}
@@ -169,10 +166,10 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		return nil
 	})
 	if err != nil {
-		return newError("failed to open connection to ", destination).Base(err)
+		return errors.New("failed to open connection to ", destination).Base(err)
 	}
 	defer conn.Close()
-	newError("connection opened to ", destination, ", local endpoint ", conn.LocalAddr(), ", remote endpoint ", conn.RemoteAddr()).WriteToLog(session.ExportIDToError(ctx))
+	errors.LogInfo(ctx, "connection opened to ", destination, ", local endpoint ", conn.LocalAddr(), ", remote endpoint ", conn.RemoteAddr())
 
 	var newCtx context.Context
 	var newCancel context.CancelFunc
@@ -195,8 +192,8 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		var writer buf.Writer
 		if destination.Network == net.Network_TCP {
 			if h.config.Fragment != nil {
-				newError("FRAGMENT", h.config.Fragment.PacketsFrom, h.config.Fragment.PacketsTo, h.config.Fragment.LengthMin, h.config.Fragment.LengthMax,
-					h.config.Fragment.IntervalMin, h.config.Fragment.IntervalMax).AtDebug().WriteToLog(session.ExportIDToError(ctx))
+				errors.LogDebug(ctx, "FRAGMENT", h.config.Fragment.PacketsFrom, h.config.Fragment.PacketsTo, h.config.Fragment.LengthMin, h.config.Fragment.LengthMax,
+					h.config.Fragment.IntervalMin, h.config.Fragment.IntervalMax)
 				writer = buf.NewWriter(&FragmentWriter{
 					fragment: h.config.Fragment,
 					writer:   conn,
@@ -206,10 +203,19 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 			}
 		} else {
 			writer = NewPacketWriter(conn, h, ctx, UDPOverride)
+			if h.config.Noises != nil {
+				errors.LogDebug(ctx, "NOISE", h.config.Noises)
+				writer = &NoisePacketWriter{
+					Writer:      writer,
+					noises:      h.config.Noises,
+					firstWrite:  true,
+					UDPOverride: UDPOverride,
+				}
+			}
 		}
 
 		if err := buf.Copy(input, writer, buf.UpdateActivity(timer)); err != nil {
-			return newError("failed to process request").Base(err)
+			return errors.New("failed to process request").Base(err)
 		}
 
 		return nil
@@ -224,11 +230,18 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 				writeConn = inbound.Conn
 				inTimer = inbound.Timer
 			}
-			return proxy.CopyRawConnIfExist(ctx, conn, writeConn, link.Writer, timer, inTimer)
+			if !isTLSConn(conn) { // it would be tls conn in special use case of MITM, we need to let link handle traffic
+				return proxy.CopyRawConnIfExist(ctx, conn, writeConn, link.Writer, timer, inTimer)
+			}
 		}
-		reader := NewPacketReader(conn, UDPOverride)
+		var reader buf.Reader
+		if destination.Network == net.Network_TCP {
+			reader = buf.NewReader(conn)
+		} else {
+			reader = NewPacketReader(conn, UDPOverride)
+		}
 		if err := buf.Copy(reader, output, buf.UpdateActivity(timer)); err != nil {
-			return newError("failed to process response").Base(err)
+			return errors.New("failed to process response").Base(err)
 		}
 		return nil
 	}
@@ -238,10 +251,23 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	}
 
 	if err := task.Run(ctx, requestDone, task.OnSuccess(responseDone, task.Close(output))); err != nil {
-		return newError("connection ends").Base(err)
+		return errors.New("connection ends").Base(err)
 	}
 
 	return nil
+}
+
+func isTLSConn(conn stat.Connection) bool {
+	if conn != nil {
+		statConn, ok := conn.(*stat.CounterConnection)
+		if ok {
+			conn = statConn.Connection
+		}
+		if _, ok := conn.(*tls.Conn); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func NewPacketReader(conn net.Conn, UDPOverride net.Destination) buf.Reader {
@@ -306,6 +332,7 @@ func NewPacketWriter(conn net.Conn, h *Handler, ctx context.Context, UDPOverride
 			Context:           ctx,
 			UDPOverride:       UDPOverride,
 		}
+
 	}
 	return &buf.SequentialWriter{Writer: conn}
 }
@@ -361,6 +388,46 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 	return nil
 }
 
+type NoisePacketWriter struct {
+	buf.Writer
+	noises      []*Noise
+	firstWrite  bool
+	UDPOverride net.Destination
+}
+
+// MultiBuffer writer with Noise before first packet
+func (w *NoisePacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
+	if w.firstWrite {
+		w.firstWrite = false
+		//Do not send Noise for dns requests(just to be safe)
+		if w.UDPOverride.Port == 53 {
+			return w.Writer.WriteMultiBuffer(mb)
+		}
+		var noise []byte
+		var err error
+		for _, n := range w.noises {
+			//User input string or base64 encoded string
+			if n.StrNoise != nil {
+				noise = n.StrNoise
+			} else {
+				//Random noise
+				noise, err = GenerateRandomBytes(randBetween(int64(n.LengthMin),
+					int64(n.LengthMax)))
+			}
+			if err != nil {
+				return err
+			}
+			w.Writer.WriteMultiBuffer(buf.MultiBuffer{buf.FromBytes(noise)})
+
+			if n.DelayMin != 0 {
+				time.Sleep(time.Duration(randBetween(int64(n.DelayMin), int64(n.DelayMax))) * time.Millisecond)
+			}
+		}
+
+	}
+	return w.Writer.WriteMultiBuffer(mb)
+}
+
 type FragmentWriter struct {
 	fragment *Fragment
 	writer   io.Writer
@@ -380,6 +447,7 @@ func (f *FragmentWriter) Write(b []byte) (int, error) {
 		}
 		data := b[5:recordLen]
 		buf := make([]byte, 1024)
+		var hello []byte
 		for from := 0; ; {
 			to := from + int(randBetween(int64(f.fragment.LengthMin), int64(f.fragment.LengthMax)))
 			if to > len(data) {
@@ -391,12 +459,22 @@ func (f *FragmentWriter) Write(b []byte) (int, error) {
 			from = to
 			buf[3] = byte(l >> 8)
 			buf[4] = byte(l)
-			_, err := f.writer.Write(buf[:5+l])
-			time.Sleep(time.Duration(randBetween(int64(f.fragment.IntervalMin), int64(f.fragment.IntervalMax))) * time.Millisecond)
-			if err != nil {
-				return 0, err
+			if f.fragment.IntervalMax == 0 { // combine fragmented tlshello if interval is 0
+				hello = append(hello, buf[:5+l]...)
+			} else {
+				_, err := f.writer.Write(buf[:5+l])
+				time.Sleep(time.Duration(randBetween(int64(f.fragment.IntervalMin), int64(f.fragment.IntervalMax))) * time.Millisecond)
+				if err != nil {
+					return 0, err
+				}
 			}
 			if from == len(data) {
+				if len(hello) > 0 {
+					_, err := f.writer.Write(hello)
+					if err != nil {
+						return 0, err
+					}
+				}
 				if len(b) > recordLen {
 					n, err := f.writer.Write(b[recordLen:])
 					if err != nil {
@@ -435,4 +513,14 @@ func randBetween(left int64, right int64) int64 {
 	}
 	bigInt, _ := rand.Int(rand.Reader, big.NewInt(right-left))
 	return left + bigInt.Int64()
+}
+func GenerateRandomBytes(n int64) ([]byte, error) {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	// Note that err == nil only if we read len(b) bytes.
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common/dice"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vmess/aead"
 )
@@ -38,7 +39,10 @@ func (v *TimedUserValidator) Add(u *protocol.MemoryUser) error {
 
 	v.users = append(v.users, u)
 
-	account := u.Account.(*MemoryAccount)
+	account, ok := u.Account.(*MemoryAccount)
+	if !ok {
+		return errors.New("account type is incorrect")
+	}
 	if !v.behaviorFused {
 		hashkdf := hmac.New(sha256.New, []byte("VMESSBSKDF"))
 		hashkdf.Write(account.ID.Bytes())
@@ -104,6 +108,6 @@ func (v *TimedUserValidator) GetBehaviorSeed() uint64 {
 	return v.behaviorSeed
 }
 
-var ErrNotFound = newError("Not Found")
+var ErrNotFound = errors.New("Not Found")
 
-var ErrTainted = newError("ErrTainted")
+var ErrTainted = errors.New("ErrTainted")

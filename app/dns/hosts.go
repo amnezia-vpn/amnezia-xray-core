@@ -1,10 +1,11 @@
 package dns
 
 import (
-	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"context"
+
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/strmatcher"
-	"github.com/amnezia-vpn/amnezia-xray-core/features"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 )
 
@@ -15,34 +16,17 @@ type StaticHosts struct {
 }
 
 // NewStaticHosts creates a new StaticHosts instance.
-func NewStaticHosts(hosts []*Config_HostMapping, legacy map[string]*net.IPOrDomain) (*StaticHosts, error) {
+func NewStaticHosts(hosts []*Config_HostMapping) (*StaticHosts, error) {
 	g := new(strmatcher.MatcherGroup)
 	sh := &StaticHosts{
-		ips:      make([][]net.Address, len(hosts)+len(legacy)+16),
+		ips:      make([][]net.Address, len(hosts)+16),
 		matchers: g,
-	}
-
-	if legacy != nil {
-		features.PrintDeprecatedFeatureWarning("simple host mapping")
-
-		for domain, ip := range legacy {
-			matcher, err := strmatcher.Full.New(domain)
-			common.Must(err)
-			id := g.Add(matcher)
-
-			address := ip.AsAddress()
-			if address.Family().IsDomain() {
-				return nil, newError("invalid domain address in static hosts: ", address.Domain()).AtWarning()
-			}
-
-			sh.ips[id] = []net.Address{address}
-		}
 	}
 
 	for _, mapping := range hosts {
 		matcher, err := toStrMatcher(mapping.Type, mapping.Domain)
 		if err != nil {
-			return nil, newError("failed to create domain matcher").Base(err)
+			return nil, errors.New("failed to create domain matcher").Base(err)
 		}
 		id := g.Add(matcher)
 		ips := make([]net.Address, 0, len(mapping.Ip)+1)
@@ -53,12 +37,12 @@ func NewStaticHosts(hosts []*Config_HostMapping, legacy map[string]*net.IPOrDoma
 			for _, ip := range mapping.Ip {
 				addr := net.IPAddress(ip)
 				if addr == nil {
-					return nil, newError("invalid IP address in static hosts: ", ip).AtWarning()
+					return nil, errors.New("invalid IP address in static hosts: ", ip).AtWarning()
 				}
 				ips = append(ips, addr)
 			}
 		default:
-			return nil, newError("neither IP address nor proxied domain specified for domain: ", mapping.Domain).AtWarning()
+			return nil, errors.New("neither IP address nor proxied domain specified for domain: ", mapping.Domain).AtWarning()
 		}
 
 		sh.ips[id] = ips
@@ -90,7 +74,7 @@ func (h *StaticHosts) lookup(domain string, option dns.IPOption, maxDepth int) [
 	case len(addrs) == 0: // Not recorded in static hosts, return nil
 		return nil
 	case len(addrs) == 1 && addrs[0].Family().IsDomain(): // Try to unwrap domain
-		newError("found replaced domain: ", domain, " -> ", addrs[0].Domain(), ". Try to unwrap it").AtDebug().WriteToLog()
+		errors.LogDebug(context.Background(), "found replaced domain: ", domain, " -> ", addrs[0].Domain(), ". Try to unwrap it")
 		if maxDepth > 0 {
 			unwrapped := h.lookup(addrs[0].Domain(), option, maxDepth-1)
 			if unwrapped != nil {

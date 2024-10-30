@@ -2,11 +2,12 @@ package internet
 
 import (
 	"context"
+	"math/rand"
 	"syscall"
 	"time"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
-	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/outbound"
 	"github.com/sagernet/sing/common/control"
@@ -48,7 +49,7 @@ func hasBindAddr(sockopt *SocketConfig) bool {
 }
 
 func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest net.Destination, sockopt *SocketConfig) (net.Conn, error) {
-	newError("dialing to " + dest.String()).AtDebug().WriteToLog()
+	errors.LogDebug(ctx, "dialing to "+dest.String())
 
 	if dest.Network == net.Network_UDP && !hasBindAddr(sockopt) {
 		srcAddr := resolveSrcAddr(net.Network_UDP, src)
@@ -73,7 +74,7 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 			}
 			sys.Control(func(fd uintptr) {
 				if err := applyOutboundSocketOptions("udp", dest.NetAddr(), fd, sockopt); err != nil {
-					newError("failed to apply socket options").Base(err).WriteToLog(session.ExportIDToError(ctx))
+					errors.LogInfo(ctx, err, "failed to apply socket options")
 				}
 			})
 		}
@@ -99,17 +100,17 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 		dialer.Control = func(network, address string, c syscall.RawConn) error {
 			for _, ctl := range d.controllers {
 				if err := ctl(network, address, c); err != nil {
-					newError("failed to apply external controller").Base(err).WriteToLog(session.ExportIDToError(ctx))
+					errors.LogInfoInner(ctx, err, "failed to apply external controller")
 				}
 			}
 			return c.Control(func(fd uintptr) {
 				if sockopt != nil {
 					if err := applyOutboundSocketOptions(network, address, fd, sockopt); err != nil {
-						newError("failed to apply socket options").Base(err).WriteToLog(session.ExportIDToError(ctx))
+						errors.LogInfoInner(ctx, err, "failed to apply socket options")
 					}
 					if dest.Network == net.Network_UDP && hasBindAddr(sockopt) {
 						if err := bindAddr(fd, sockopt.BindAddress, sockopt.BindPort); err != nil {
-							newError("failed to bind source address to ", sockopt.BindAddress).Base(err).WriteToLog(session.ExportIDToError(ctx))
+							errors.LogInfoInner(ctx, err, "failed to bind source address to ", sockopt.BindAddress)
 						}
 					}
 				}
@@ -210,14 +211,40 @@ func UseAlternativeSystemDialer(dialer SystemDialer) {
 // xray:api:beta
 func RegisterDialerController(ctl control.Func) error {
 	if ctl == nil {
-		return newError("nil listener controller")
+		return errors.New("nil listener controller")
 	}
 
 	dialer, ok := effectiveSystemDialer.(*DefaultSystemDialer)
 	if !ok {
-		return newError("RegisterListenerController not supported in custom dialer")
+		return errors.New("RegisterListenerController not supported in custom dialer")
 	}
 
 	dialer.controllers = append(dialer.controllers, ctl)
+	return nil
+}
+
+type FakePacketConn struct {
+	net.Conn
+}
+
+func (c *FakePacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	n, err = c.Read(p)
+	return n, c.RemoteAddr(), err
+}
+
+func (c *FakePacketConn) WriteTo(p []byte, _ net.Addr) (n int, err error) {
+	return c.Write(p)
+}
+
+func (c *FakePacketConn) LocalAddr() net.Addr {
+	return &net.TCPAddr{
+		IP:   net.IP{byte(rand.Intn(256)), byte(rand.Intn(256)), byte(rand.Intn(256)), byte(rand.Intn(256))},
+		Port: rand.Intn(65536),
+	}
+}
+
+func (c *FakePacketConn) SetReadBuffer(bytes int) error {
+	// do nothing, this function is only there to suppress quic-go printing
+	// random warnings about UDP buffers to stdout
 	return nil
 }

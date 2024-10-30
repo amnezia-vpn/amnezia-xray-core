@@ -7,7 +7,6 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
-	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport"
 	M "github.com/sagernet/sing/common/metadata"
@@ -47,5 +46,5 @@ func (d *Dispatcher) NewPacketConnection(ctx context.Context, conn N.PacketConn,
 }
 
 func (d *Dispatcher) NewError(ctx context.Context, err error) {
-	d.newErrorFunc(err).WriteToLog(session.ExportIDToError(ctx))
+	errors.LogInfo(ctx, err.Error())
 }
