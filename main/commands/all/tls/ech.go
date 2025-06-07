@@ -5,10 +5,10 @@ import (
 	"encoding/pem"
 	"os"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/main/commands/base"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	"github.com/xtls/reality/hpke"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/main/commands/base"
-	"github.com/xtls/xray-core/transport/internet/tls"
 	"golang.org/x/crypto/cryptobyte"
 )
 

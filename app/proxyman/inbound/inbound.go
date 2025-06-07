@@ -4,22 +4,22 @@ import (
 	"context"
 	"sync"
 
-	"github.com/xtls/xray-core/app/proxyman"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/inbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/proxyman"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/inbound"
 )
 
 // Manager manages all inbound handlers.
 type Manager struct {
-	access          sync.RWMutex
+	access           sync.RWMutex
 	untaggedHandlers []inbound.Handler
-	taggedHandlers  map[string]inbound.Handler
-	running         bool
+	taggedHandlers   map[string]inbound.Handler
+	running          bool
 }
 
 // New returns a new Manager for inbound handlers.

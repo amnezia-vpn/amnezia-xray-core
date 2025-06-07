@@ -7,11 +7,12 @@
 package command
 
 import (
-	observatory "github.com/xtls/xray-core/app/observatory"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	observatory "github.com/amnezia-vpn/amnezia-xray-core/app/observatory"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (

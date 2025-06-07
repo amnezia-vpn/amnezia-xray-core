@@ -5,12 +5,12 @@ import (
 	"io"
 	"net"
 
-	"github.com/xtls/xray-core/common/buf"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/session"
-	"github.com/xtls/xray-core/proxy"
-	"github.com/xtls/xray-core/proxy/vless"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vless"
 	"google.golang.org/protobuf/proto"
 )
 

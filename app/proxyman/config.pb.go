@@ -7,13 +7,14 @@
 package proxyman
 
 import (
-	net "github.com/xtls/xray-core/common/net"
-	serial "github.com/xtls/xray-core/common/serial"
-	internet "github.com/xtls/xray-core/transport/internet"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	net "github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	serial "github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	internet "github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (

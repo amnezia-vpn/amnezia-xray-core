@@ -8,11 +8,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/proxy/trojan"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/trojan"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -28,13 +28,13 @@ type TrojanServerTarget struct {
 
 // TrojanClientConfig is configuration of trojan servers
 type TrojanClientConfig struct {
-	Address  *Address `json:"address"`
-	Port     uint16   `json:"port"`
-	Level    byte     `json:"level"`
-	Email    string   `json:"email"`
-	Password string   `json:"password"`
-	Flow     string   `json:"flow"`
-	Servers []*TrojanServerTarget `json:"servers"`
+	Address  *Address              `json:"address"`
+	Port     uint16                `json:"port"`
+	Level    byte                  `json:"level"`
+	Email    string                `json:"email"`
+	Password string                `json:"password"`
+	Flow     string                `json:"flow"`
+	Servers  []*TrojanServerTarget `json:"servers"`
 }
 
 // Build implements Buildable

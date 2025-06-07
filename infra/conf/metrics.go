@@ -1,8 +1,8 @@
 package conf
 
 import (
-	"github.com/xtls/xray-core/app/metrics"
-	"github.com/xtls/xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/metrics"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 )
 
 type MetricsConfig struct {

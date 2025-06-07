@@ -7,11 +7,12 @@
 package log
 
 import (
-	log "github.com/xtls/xray-core/common/log"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	log "github.com/amnezia-vpn/amnezia-xray-core/common/log"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (

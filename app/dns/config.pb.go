@@ -7,12 +7,13 @@
 package dns
 
 import (
-	router "github.com/xtls/xray-core/app/router"
-	net "github.com/xtls/xray-core/common/net"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	router "github.com/amnezia-vpn/amnezia-xray-core/app/router"
+	net "github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (

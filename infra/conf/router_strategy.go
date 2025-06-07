@@ -1,12 +1,13 @@
 package conf
 
 import (
-	"google.golang.org/protobuf/proto"
 	"strings"
 
-	"github.com/xtls/xray-core/app/observatory/burst"
-	"github.com/xtls/xray-core/app/router"
-	"github.com/xtls/xray-core/infra/conf/cfgcommon/duration"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/amnezia-vpn/amnezia-xray-core/app/observatory/burst"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/router"
+	"github.com/amnezia-vpn/amnezia-xray-core/infra/conf/cfgcommon/duration"
 )
 
 const (

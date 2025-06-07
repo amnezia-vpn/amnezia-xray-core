@@ -1,9 +1,10 @@
 package conf
 
 import (
-	"github.com/xtls/xray-core/app/version"
-	"github.com/xtls/xray-core/core"
 	"strconv"
+
+	"github.com/amnezia-vpn/amnezia-xray-core/app/version"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
 )
 
 type VersionConfig struct {

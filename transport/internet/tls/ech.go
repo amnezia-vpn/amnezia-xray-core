@@ -17,18 +17,18 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/crypto"
+	dns2 "github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 	utls "github.com/refraction-networking/utls"
-	"github.com/xtls/xray-core/common/crypto"
-	dns2 "github.com/xtls/xray-core/features/dns"
 	"golang.org/x/net/http2"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/utils"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 	"github.com/miekg/dns"
 	"github.com/xtls/reality"
 	"github.com/xtls/reality/hpke"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/utils"
-	"github.com/xtls/xray-core/transport/internet"
 	"golang.org/x/crypto/cryptobyte"
 )
 

@@ -14,12 +14,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/xtls/xray-core/common/cmdarg"
-	"github.com/xtls/xray-core/common/errors"
-	clog "github.com/xtls/xray-core/common/log"
-	"github.com/xtls/xray-core/common/platform"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/main/commands/base"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/cmdarg"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	clog "github.com/amnezia-vpn/amnezia-xray-core/common/log"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/platform"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/main/commands/base"
 )
 
 var cmdRun = &base.Command{

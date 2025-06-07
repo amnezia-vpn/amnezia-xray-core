@@ -6,12 +6,12 @@ import (
 	"net"
 	"strings"
 
-	"github.com/xtls/xray-core/common/errors"
-	v2net "github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/proxy/freedom"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	v2net "github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/freedom"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 	"google.golang.org/protobuf/proto"
-	"github.com/xtls/xray-core/transport/internet"
 )
 
 type FreedomConfig struct {

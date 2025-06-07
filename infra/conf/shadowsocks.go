@@ -3,13 +3,13 @@ package conf
 import (
 	"strings"
 
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/shadowsocks"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/shadowsocks_2022"
 	"github.com/sagernet/sing-shadowsocks/shadowaead_2022"
 	C "github.com/sagernet/sing/common"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/proxy/shadowsocks"
-	"github.com/xtls/xray-core/proxy/shadowsocks_2022"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -172,16 +172,16 @@ type ShadowsocksServerTarget struct {
 }
 
 type ShadowsocksClientConfig struct {
-	Address    *Address `json:"address"`
-	Port       uint16   `json:"port"`
-	Level      byte     `json:"level"`
-	Email      string   `json:"email"`
-	Cipher     string   `json:"method"`
-	Password   string   `json:"password"`
-	IVCheck    bool     `json:"ivCheck"`
-	UoT        bool     `json:"uot"`
-	UoTVersion int      `json:"uotVersion"`
-	Servers []*ShadowsocksServerTarget `json:"servers"`
+	Address    *Address                   `json:"address"`
+	Port       uint16                     `json:"port"`
+	Level      byte                       `json:"level"`
+	Email      string                     `json:"email"`
+	Cipher     string                     `json:"method"`
+	Password   string                     `json:"password"`
+	IVCheck    bool                       `json:"ivCheck"`
+	UoT        bool                       `json:"uot"`
+	UoTVersion int                        `json:"uotVersion"`
+	Servers    []*ShadowsocksServerTarget `json:"servers"`
 }
 
 func (v *ShadowsocksClientConfig) Build() (proto.Message, error) {

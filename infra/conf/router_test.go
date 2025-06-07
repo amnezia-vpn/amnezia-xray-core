@@ -9,13 +9,13 @@ import (
 	"time"
 	_ "unsafe"
 
-	"github.com/xtls/xray-core/app/router"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/platform"
-	"github.com/xtls/xray-core/common/platform/filesystem"
-	"github.com/xtls/xray-core/common/serial"
-	. "github.com/xtls/xray-core/infra/conf"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/router"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/platform"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/platform/filesystem"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	. "github.com/amnezia-vpn/amnezia-xray-core/infra/conf"
 	"google.golang.org/protobuf/proto"
 )
 

@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/common/uuid"
-	"github.com/xtls/xray-core/proxy/vmess"
-	"github.com/xtls/xray-core/proxy/vmess/inbound"
-	"github.com/xtls/xray-core/proxy/vmess/outbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/uuid"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vmess"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vmess/inbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vmess/outbound"
 	"google.golang.org/protobuf/proto"
 )
 

@@ -1,9 +1,9 @@
 package internet
 
 import (
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 )
 
 type ConfigCreator func() interface{}
@@ -130,7 +130,7 @@ func (s DomainStrategy) FallbackIP6() bool {
 }
 
 func (s DomainStrategy) GetDynamicStrategy(addrFamily net.AddressFamily) DomainStrategy {
-	if  addrFamily.IsDomain(){
+	if addrFamily.IsDomain() {
 		return s
 	}
 	switch s {

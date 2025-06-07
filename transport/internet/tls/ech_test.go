@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/xtls/xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
 )
 
 func TestECHDial(t *testing.T) {

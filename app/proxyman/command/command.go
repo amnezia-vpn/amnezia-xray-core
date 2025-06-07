@@ -3,14 +3,14 @@ package command
 import (
 	"context"
 
-	"github.com/xtls/xray-core/app/commander"
-	"github.com/xtls/xray-core/common"
-	"github.com/xtls/xray-core/common/errors"
-	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/inbound"
-	"github.com/xtls/xray-core/features/outbound"
-	"github.com/xtls/xray-core/proxy"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/commander"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/inbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/outbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy"
 	grpc "google.golang.org/grpc"
 )
 

@@ -7,12 +7,13 @@
 package freedom
 
 import (
-	protocol "github.com/xtls/xray-core/common/protocol"
-	internet "github.com/xtls/xray-core/transport/internet"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protocol "github.com/amnezia-vpn/amnezia-xray-core/common/protocol"
+	internet "github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (

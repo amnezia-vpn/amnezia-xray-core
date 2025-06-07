@@ -7,11 +7,12 @@
 package kcp
 
 import (
-	serial "github.com/xtls/xray-core/common/serial"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	serial "github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
