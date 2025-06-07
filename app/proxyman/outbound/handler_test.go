@@ -8,17 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xtls/xray-core/app/policy"
-	"github.com/xtls/xray-core/app/proxyman"
-	. "github.com/xtls/xray-core/app/proxyman/outbound"
-	"github.com/xtls/xray-core/app/stats"
-	"github.com/xtls/xray-core/common/net"
-	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/common/session"
-	core "github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/features/outbound"
-	"github.com/xtls/xray-core/proxy/freedom"
-	"github.com/xtls/xray-core/transport/internet/stat"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/policy"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/proxyman"
+	. "github.com/amnezia-vpn/amnezia-xray-core/app/proxyman/outbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/app/stats"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
+	core "github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/outbound"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/freedom"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
 )
 
 func TestInterfaces(t *testing.T) {

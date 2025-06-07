@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/xtls/xray-core/common"
-	. "github.com/xtls/xray-core/common/task"
+	"github.com/amnezia-vpn/amnezia-xray-core/common"
+	. "github.com/amnezia-vpn/amnezia-xray-core/common/task"
 )
 
 func TestExecuteParallel(t *testing.T) {

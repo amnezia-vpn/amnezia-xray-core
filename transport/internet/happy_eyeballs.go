@@ -2,7 +2,7 @@ package internet
 
 import (
 	"context"
-	"github.com/xtls/xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"time"
 )
 

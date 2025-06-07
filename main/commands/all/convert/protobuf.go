@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xtls/xray-core/common/cmdarg"
-	creflect "github.com/xtls/xray-core/common/reflect"
-	"github.com/xtls/xray-core/core"
-	"github.com/xtls/xray-core/main/commands/base"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/cmdarg"
+	creflect "github.com/amnezia-vpn/amnezia-xray-core/common/reflect"
+	"github.com/amnezia-vpn/amnezia-xray-core/core"
+	"github.com/amnezia-vpn/amnezia-xray-core/main/commands/base"
 
 	"google.golang.org/protobuf/proto"
 )
