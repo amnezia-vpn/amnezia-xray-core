@@ -355,30 +355,7 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		if b == nil {
 			break
 		}
-		var n int
-		var err error
-		if b.UDP != nil {
-			if w.UDPOverride.Address != nil {
-				b.UDP.Address = w.UDPOverride.Address
-			}
-			if w.UDPOverride.Port != 0 {
-				b.UDP.Port = w.UDPOverride.Port
-			}
-			if w.Handler.config.hasStrategy() && b.UDP.Address.Family().IsDomain() {
-				ip := w.Handler.resolveIP(w.Context, b.UDP.Address.Domain(), nil)
-				if ip != nil {
-					b.UDP.Address = ip
-				}
-			}
-			destAddr, _ := net.ResolveUDPAddr("udp", b.UDP.NetAddr())
-			if destAddr == nil {
-				b.Release()
-				continue
-			}
-			n, err = w.PacketConnWrapper.WriteTo(b.Bytes(), destAddr)
-		} else {
-			n, err = w.PacketConnWrapper.Write(b.Bytes())
-		}
+		n, err := w.PacketConnWrapper.Write(b.Bytes())
 		b.Release()
 		if err != nil {
 			buf.ReleaseMulti(mb)
