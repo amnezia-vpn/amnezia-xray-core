@@ -176,6 +176,52 @@ If you are compiling a 32-bit MIPS/MIPSLE target, use this command instead:
 ```bash
 CGO_ENABLED=0 go build -o xray -trimpath -buildvcs=false -gcflags="-l=4" -ldflags="-X github.com/xtls/xray-core/core.build=REPLACE -s -w -buildid=" -v ./main
 ```
+## Sample Amnezia Configuration with Xray
+
+
+```json
+{
+  ... 
+  "outbounds": [
+    {
+      ...
+      "protocol": "wireguard",
+      "settings": {
+        "secretKey": "<YOUR_SECRET_KEY>",
+        "address": [
+          "<CLIENT_IP_WITH_MASK>"
+        ],
+        "awg": {
+          "jc": "<JUNK_PACKET_COUNT>",
+          "jmin": "<JUNK_PACKET_MIN_SIZE>",
+          "jmax": "<JUNK_PACKET_MAX_SIZE>",
+          "s1": "<SEED_1>",
+          "s2": "<SEED_2>",
+          "h1": "<HASH_1>",
+          "h2": "<HASH_2>",
+          "h3": "<HASH_3>",
+          "h4": "<HASH_4>",
+          ... other amneziawg parameters
+        },
+        "mtu": "<MTU_VALUE>",
+        "domainStrategy": "<DOMAIN_STRATEGY>",
+        "peers": [
+          {
+            "endpoint": "<SERVER_IP:PORT>",
+            "publicKey": "<SERVER_PUBLIC_KEY>",
+            "keepAlive": "<KEEPALIVE_INTERVAL>",
+            "allowedIPs": [
+              "<ALLOWED_IPS>"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  ... 
+}
+```
+
 
 ## Stargazers over time
 

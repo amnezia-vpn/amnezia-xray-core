@@ -48,6 +48,24 @@ func (c *WireGuardPeerConfig) Build() (proto.Message, error) {
 	return config, nil
 }
 
+type AmneziaParamters struct {
+	JunkPacketCount           string `json:"jc"`
+	JunkPacketMinSize         string `json:"jmin"`
+	JunkPacketMaxSize         string `json:"jmax"`
+	InitHeaderJunkSize        string `json:"s1"`
+	ResponseHeaderJunkSize    string `json:"s2"`
+	CookieReplyHeaderJunkSize string `json:"s3"`
+	TransportHeaderJunkSize   string `json:"s4"`
+	MagicHeader1              string `json:"h1"`
+	MagicHeader2              string `json:"h2"`
+	MagicHeader3              string `json:"h3"`
+	MagicHeader4              string `json:"h4"`
+	SpecialJunk1              string `json:"i1"`
+	SpecialJunk2              string `json:"i2"`
+	SpecialJunk3              string `json:"i3"`
+	SpecialJunk4              string `json:"i4"`
+	SpecialJunk5              string `json:"i5"`
+}
 type WireGuardConfig struct {
 	IsClient bool `json:""`
 
@@ -59,6 +77,7 @@ type WireGuardConfig struct {
 	NumWorkers     int32                  `json:"workers"`
 	Reserved       []byte                 `json:"reserved"`
 	DomainStrategy string                 `json:"domainStrategy"`
+	Parameters     *AmneziaParamters      `json:"awg,omitempty"`
 }
 
 func (c *WireGuardConfig) Build() (proto.Message, error) {
@@ -119,7 +138,24 @@ func (c *WireGuardConfig) Build() (proto.Message, error) {
 
 	config.IsClient = c.IsClient
 	config.NoKernelTun = c.NoKernelTun
-
+	config.Parameters = &wireguard.AmneziaParamters{
+		Jc:   c.Parameters.JunkPacketCount,
+		Jmin: c.Parameters.JunkPacketMinSize,
+		Jmax: c.Parameters.JunkPacketMaxSize,
+		S1:   c.Parameters.InitHeaderJunkSize,
+		S2:   c.Parameters.ResponseHeaderJunkSize,
+		S3:   c.Parameters.CookieReplyHeaderJunkSize,
+		S4:   c.Parameters.TransportHeaderJunkSize,
+		H1:   c.Parameters.MagicHeader1,
+		H2:   c.Parameters.MagicHeader2,
+		H3:   c.Parameters.MagicHeader3,
+		H4:   c.Parameters.MagicHeader4,
+		I1:   c.Parameters.SpecialJunk1,
+		I2:   c.Parameters.SpecialJunk2,
+		I3:   c.Parameters.SpecialJunk3,
+		I4:   c.Parameters.SpecialJunk4,
+		I5:   c.Parameters.SpecialJunk5,
+	}
 	return config, nil
 }
 

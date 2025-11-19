@@ -14,9 +14,9 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
+	wgtun "github.com/amnezia-vpn/amneziawg-go/tun"
 	"github.com/sagernet/sing/common/control"
 	"github.com/vishvananda/netlink"
-	wgtun "golang.zx2c4.com/wireguard/tun"
 )
 
 type deviceNet struct {

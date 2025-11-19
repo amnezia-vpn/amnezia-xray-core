@@ -9,7 +9,7 @@ import (
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/log"
-	"golang.zx2c4.com/wireguard/device"
+	"github.com/amnezia-vpn/amneziawg-go/device"
 )
 
 var wgLogger = &device.Logger{
@@ -78,7 +78,57 @@ func createIPCRequest(conf *DeviceConfig) string {
 	var request strings.Builder
 
 	request.WriteString(fmt.Sprintf("private_key=%s\n", conf.SecretKey))
-
+	if conf.Parameters != nil {
+		p := conf.Parameters
+		if p.Jc != "" {
+			request.WriteString(fmt.Sprintf("jc=%s\n", p.Jc))
+		}
+		if p.Jmin != "" {
+			request.WriteString(fmt.Sprintf("jmin=%s\n", p.Jmin))
+		}
+		if p.Jmax != "" {
+			request.WriteString(fmt.Sprintf("jmax=%s\n", p.Jmax))
+		}
+		if p.S1 != "" {
+			request.WriteString(fmt.Sprintf("s1=%s\n", p.S1))
+		}
+		if p.S2 != "" {
+			request.WriteString(fmt.Sprintf("s2=%s\n", p.S2))
+		}
+		if p.S3 != "" {
+			request.WriteString(fmt.Sprintf("s3=%s\n", p.S3))
+		}
+		if p.S4 != "" {
+			request.WriteString(fmt.Sprintf("s4=%s\n", p.S4))
+		}
+		if p.H1 != "" {
+			request.WriteString(fmt.Sprintf("h1=%s\n", p.H1))
+		}
+		if p.H2 != "" {
+			request.WriteString(fmt.Sprintf("h2=%s\n", p.H2))
+		}
+		if p.H3 != "" {
+			request.WriteString(fmt.Sprintf("h3=%s\n", p.H3))
+		}
+		if p.H4 != "" {
+			request.WriteString(fmt.Sprintf("h4=%s\n", p.H4))
+		}
+		if p.I1 != "" {
+			request.WriteString(fmt.Sprintf("i1=%s\n", p.I1))
+		}
+		if p.I2 != "" {
+			request.WriteString(fmt.Sprintf("i2=%s\n", p.I2))
+		}
+		if p.I3 != "" {
+			request.WriteString(fmt.Sprintf("i3=%s\n", p.I3))
+		}
+		if p.I4 != "" {
+			request.WriteString(fmt.Sprintf("i4=%s\n", p.I4))
+		}
+		if p.I5 != "" {
+			request.WriteString(fmt.Sprintf("i5=%s\n", p.I5))
+		}
+	}
 	if !conf.IsClient {
 		// placeholder, we'll handle actual port listening on Xray
 		request.WriteString("listen_port=1337\n")
