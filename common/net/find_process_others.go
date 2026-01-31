@@ -3,7 +3,7 @@
 package net
 
 import (
-	"github.com/xtls/xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 )
 
 func FindProcess(dest Destination) (int, string, string, error) {

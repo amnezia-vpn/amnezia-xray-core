@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/xtls/xray-core/common/errors"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 )
 
 const (
