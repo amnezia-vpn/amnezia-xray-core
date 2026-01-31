@@ -16,10 +16,6 @@ import (
 	"unsafe"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/app/dispatcher"
-
-	"github.com/amnezia-vpn/amnezia-xray-core/common/uuid"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/amnezia-vpn/amnezia-xray-core/app/reverse"
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
@@ -33,12 +29,14 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/signal"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/uuid"
 	"github.com/amnezia-vpn/amnezia-xray-core/core"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/dns"
 	feature_inbound "github.com/amnezia-vpn/amnezia-xray-core/features/inbound"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/outbound"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/policy"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
+	"github.com/amnezia-vpn/amnezia-xray-core/features/stats"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vless"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy/vless/encoding"
@@ -47,6 +45,7 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/reality"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
+	"google.golang.org/protobuf/proto"
 )
 
 func init() {
@@ -80,10 +79,11 @@ func init() {
 type Handler struct {
 	inboundHandlerManager  feature_inbound.Manager
 	policyManager          policy.Manager
+	stats                  stats.Manager
 	validator              vless.Validator
 	decryption             *encryption.ServerInstance
 	outboundHandlerManager outbound.Manager
-	defaultDispatcher      *dispatcher.DefaultDispatcher
+	defaultDispatcher      routing.Dispatcher
 	ctx                    context.Context
 	fallbacks              map[string]map[string]map[string]*Fallback // or nil
 	clientConnections      map[net.Conn]struct{}
@@ -100,9 +100,10 @@ func New(ctx context.Context, config *Config, dc dns.Client, validator vless.Val
 	handler := &Handler{
 		inboundHandlerManager:  v.GetFeature(feature_inbound.ManagerType()).(feature_inbound.Manager),
 		policyManager:          v.GetFeature(policy.ManagerType()).(policy.Manager),
+		stats:                  v.GetFeature(stats.ManagerType()).(stats.Manager),
 		validator:              validator,
 		outboundHandlerManager: v.GetFeature(outbound.ManagerType()).(outbound.Manager),
-		defaultDispatcher:      v.GetFeature(routing.DispatcherType()).(*dispatcher.DefaultDispatcher),
+		defaultDispatcher:      v.GetFeature(routing.DispatcherType()).(routing.Dispatcher),
 		ctx:                    ctx,
 		clientConnections:      make(map[net.Conn]struct{}),
 		notifiedInvalidIds:     make(map[string]time.Time),
@@ -309,11 +310,8 @@ func (*Handler) Network() []net.Network {
 }
 
 // Process implements proxy.Inbound.Process().
-func (h *Handler) Process(ctx context.Context, network net.Network, connection stat.Connection, dispatcher routing.Dispatcher) error {
-	iConn := connection
-	if statConn, ok := iConn.(*stat.CounterConnection); ok {
-		iConn = statConn.Connection
-	}
+func (h *Handler) Process(ctx context.Context, network net.Network, connection stat.Connection, dispatch routing.Dispatcher) error {
+	iConn := stat.TryUnwrapStatsConn(connection)
 
 	if h.decryption != nil {
 		var err error
@@ -586,6 +584,10 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 
 	account := request.User.Account.(*vless.MemoryAccount)
 
+	if account.Reverse != nil && request.Command != protocol.RequestCommandRvs {
+		return errors.New("for safety reasons, user " + account.ID.String() + " is not allowed to use forward proxy")
+	}
+
 	responseAddons := &encoding.Addons{
 		// Flow: requestAddons.Flow,
 	}
@@ -670,10 +672,10 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 		if err != nil {
 			return err
 		}
-		return r.NewMux(ctx, h.defaultDispatcher.WrapLink(ctx, &transport.Link{Reader: clientReader, Writer: clientWriter}))
+		return r.NewMux(ctx, dispatcher.WrapLink(ctx, h.policyManager, h.stats, &transport.Link{Reader: clientReader, Writer: clientWriter}))
 	}
 
-	if err := dispatcher.DispatchLink(ctx, request.Destination(), &transport.Link{
+	if err := dispatch.DispatchLink(ctx, request.Destination(), &transport.Link{
 		Reader: clientReader,
 		Writer: clientWriter},
 	); err != nil {
@@ -717,7 +719,7 @@ func (r *Reverse) Dispatch(ctx context.Context, link *transport.Link) {
 			link.Reader = &buf.EndpointOverrideReader{Reader: link.Reader, Dest: ob.Target.Address, OriginalDest: ob.OriginalTarget.Address}
 			link.Writer = &buf.EndpointOverrideWriter{Writer: link.Writer, Dest: ob.Target.Address, OriginalDest: ob.OriginalTarget.Address}
 		}
-		r.client.Dispatch(ctx, link)
+		r.client.Dispatch(session.ContextWithIsReverseMux(ctx, true), link)
 	}
 }
 

@@ -90,7 +90,7 @@ func (c *StreamConfig) GetEffectiveSecuritySettings() (interface{}, error) {
 }
 
 func (c *StreamConfig) HasSecuritySettings() bool {
-	return len(c.SecurityType) > 0
+	return len(c.SecuritySettings) > 0
 }
 
 func (c *ProxyConfig) HasTag() bool {

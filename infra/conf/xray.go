@@ -3,9 +3,6 @@ package conf
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"log"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -31,6 +28,7 @@ var (
 		"vmess":         func() interface{} { return new(VMessInboundConfig) },
 		"trojan":        func() interface{} { return new(TrojanServerConfig) },
 		"wireguard":     func() interface{} { return &WireGuardConfig{IsClient: false} },
+		"tun":           func() interface{} { return new(TunConfig) },
 	}, "protocol", "settings")
 
 	outboundConfigLoader = NewJSONConfigLoader(ConfigCreatorCache{
@@ -45,11 +43,10 @@ var (
 		"vless":       func() interface{} { return new(VLessOutboundConfig) },
 		"vmess":       func() interface{} { return new(VMessOutboundConfig) },
 		"trojan":      func() interface{} { return new(TrojanClientConfig) },
+		"hysteria":    func() interface{} { return new(HysteriaClientConfig) },
 		"dns":         func() interface{} { return new(DNSOutboundConfig) },
 		"wireguard":   func() interface{} { return &WireGuardConfig{IsClient: true} },
 	}, "protocol", "settings")
-
-	ctllog = log.New(os.Stderr, "xctl> ", 0)
 )
 
 type SniffingConfig struct {
@@ -120,56 +117,24 @@ func (m *MuxConfig) Build() (*proxyman.MultiplexingConfig, error) {
 	}, nil
 }
 
-type InboundDetourAllocationConfig struct {
-	Strategy    string  `json:"strategy"`
-	Concurrency *uint32 `json:"concurrency"`
-	RefreshMin  *uint32 `json:"refresh"`
-}
-
-// Build implements Buildable.
-func (c *InboundDetourAllocationConfig) Build() (*proxyman.AllocationStrategy, error) {
-	config := new(proxyman.AllocationStrategy)
-	switch strings.ToLower(c.Strategy) {
-	case "always":
-		config.Type = proxyman.AllocationStrategy_Always
-	case "random":
-		config.Type = proxyman.AllocationStrategy_Random
-	case "external":
-		config.Type = proxyman.AllocationStrategy_External
-	default:
-		return nil, errors.New("unknown allocation strategy: ", c.Strategy)
-	}
-	if c.Concurrency != nil {
-		config.Concurrency = &proxyman.AllocationStrategy_AllocationStrategyConcurrency{
-			Value: *c.Concurrency,
-		}
-	}
-
-	if c.RefreshMin != nil {
-		config.Refresh = &proxyman.AllocationStrategy_AllocationStrategyRefresh{
-			Value: *c.RefreshMin,
-		}
-	}
-
-	return config, nil
-}
-
 type InboundDetourConfig struct {
-	Protocol       string                         `json:"protocol"`
-	PortList       *PortList                      `json:"port"`
-	ListenOn       *Address                       `json:"listen"`
-	Settings       *json.RawMessage               `json:"settings"`
-	Tag            string                         `json:"tag"`
-	Allocation     *InboundDetourAllocationConfig `json:"allocate"`
-	StreamSetting  *StreamConfig                  `json:"streamSettings"`
-	SniffingConfig *SniffingConfig                `json:"sniffing"`
+	Protocol       string           `json:"protocol"`
+	PortList       *PortList        `json:"port"`
+	ListenOn       *Address         `json:"listen"`
+	Settings       *json.RawMessage `json:"settings"`
+	Tag            string           `json:"tag"`
+	StreamSetting  *StreamConfig    `json:"streamSettings"`
+	SniffingConfig *SniffingConfig  `json:"sniffing"`
 }
 
 // Build implements Buildable.
 func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 	receiverSettings := &proxyman.ReceiverConfig{}
 
-	if c.ListenOn == nil {
+	// TUN inbound doesn't need port configuration as it uses network interface instead
+	if strings.ToLower(c.Protocol) == "tun" {
+		// Skip port validation for TUN
+	} else if c.ListenOn == nil {
 		// Listen on anyip, must set PortList
 		if c.PortList == nil {
 			return nil, errors.New("Listen on AnyIP but no Port(s) set in InboundDetour.")
@@ -197,30 +162,6 @@ func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 		}
 	}
 
-	if c.Allocation != nil {
-		concurrency := -1
-		if c.Allocation.Concurrency != nil && c.Allocation.Strategy == "random" {
-			concurrency = int(*c.Allocation.Concurrency)
-		}
-		portRange := 0
-
-		for _, pr := range c.PortList.Range {
-			portRange += int(pr.To - pr.From + 1)
-		}
-		if concurrency >= 0 && concurrency >= portRange {
-			var ports strings.Builder
-			for _, pr := range c.PortList.Range {
-				fmt.Fprintf(&ports, "%d-%d ", pr.From, pr.To)
-			}
-			return nil, errors.New("not enough ports. concurrency = ", concurrency, " ports: ", ports.String())
-		}
-
-		as, err := c.Allocation.Build()
-		if err != nil {
-			return nil, err
-		}
-		receiverSettings.AllocationStrategy = as
-	}
 	if c.StreamSetting != nil {
 		ss, err := c.StreamSetting.Build()
 		if err != nil {

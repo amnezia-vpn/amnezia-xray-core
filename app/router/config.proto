@@ -113,6 +113,7 @@ message RoutingRule {
   xray.common.net.PortList local_port_list = 18;
 
   xray.common.net.PortList vless_route_list = 20;
+  repeated string process = 21;
 }
 
 message BalancingRule {
@@ -147,8 +148,8 @@ message Config {
     // Use domain as is.
     AsIs = 0;
 
-    // Always resolve IP for domains.
-    UseIp = 1;
+    // [Deprecated] Always resolve IP for domains.
+    // UseIp = 1;
 
     // Resolve to IP if the domain doesn't match any rules.
     IpIfNonMatch = 2;
