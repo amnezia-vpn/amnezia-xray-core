@@ -25,8 +25,8 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/pipe"
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/http3"
+	"github.com/apernet/quic-go"
+	"github.com/apernet/quic-go/http3"
 	"golang.org/x/net/http2"
 )
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/amnezia-vpn/amnezia-xray-core/app/dispatcher"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/mux"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
@@ -198,9 +197,11 @@ func (w *BridgeWorker) handleInternalConn(link *transport.Link) {
 
 func (w *BridgeWorker) Dispatch(ctx context.Context, dest net.Destination) (*transport.Link, error) {
 	if !isInternalDomain(dest) {
-		ctx = session.ContextWithInbound(ctx, &session.Inbound{
-			Tag: w.Tag,
-		})
+		if session.InboundFromContext(ctx) == nil {
+			ctx = session.ContextWithInbound(ctx, &session.Inbound{
+				Tag: w.Tag,
+			})
+		}
 		return w.Dispatcher.Dispatch(ctx, dest)
 	}
 
@@ -221,13 +222,13 @@ func (w *BridgeWorker) Dispatch(ctx context.Context, dest net.Destination) (*tra
 
 func (w *BridgeWorker) DispatchLink(ctx context.Context, dest net.Destination, link *transport.Link) error {
 	if !isInternalDomain(dest) {
-		ctx = session.ContextWithInbound(ctx, &session.Inbound{
-			Tag: w.Tag,
-		})
+		if session.InboundFromContext(ctx) == nil {
+			ctx = session.ContextWithInbound(ctx, &session.Inbound{
+				Tag: w.Tag,
+			})
+		}
 		return w.Dispatcher.DispatchLink(ctx, dest, link)
 	}
-
-	link = w.Dispatcher.(*dispatcher.DefaultDispatcher).WrapLink(ctx, link)
 	w.handleInternalConn(link)
 
 	return nil

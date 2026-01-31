@@ -2,6 +2,7 @@ package dns
 
 import (
 	"context"
+	"runtime"
 	"strconv"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
@@ -24,10 +25,13 @@ func NewStaticHosts(hosts []*Config_HostMapping) (*StaticHosts, error) {
 		matchers: g,
 	}
 
-	for _, mapping := range hosts {
+	defer runtime.GC()
+	for i, mapping := range hosts {
+		hosts[i] = nil
 		matcher, err := toStrMatcher(mapping.Type, mapping.Domain)
 		if err != nil {
-			return nil, errors.New("failed to create domain matcher").Base(err)
+			errors.LogErrorInner(context.Background(), err, "failed to create domain matcher, ignore domain rule [type: ", mapping.Type, ", domain: ", mapping.Domain, "]")
+			continue
 		}
 		id := g.Add(matcher)
 		ips := make([]net.Address, 0, len(mapping.Ip)+1)
@@ -46,9 +50,13 @@ func NewStaticHosts(hosts []*Config_HostMapping) (*StaticHosts, error) {
 			for _, ip := range mapping.Ip {
 				addr := net.IPAddress(ip)
 				if addr == nil {
-					return nil, errors.New("invalid IP address in static hosts: ", ip).AtWarning()
+					errors.LogError(context.Background(), "invalid IP address in static hosts: ", ip, ", ignore this ip for rule [type: ", mapping.Type, ", domain: ", mapping.Domain, "]")
+					continue
 				}
 				ips = append(ips, addr)
+			}
+			if len(ips) == 0 {
+				continue
 			}
 		}
 

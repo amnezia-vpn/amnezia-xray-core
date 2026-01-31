@@ -10,7 +10,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
-	"github.com/amnezia-vpn/amnezia-xray-core/common/antireplay"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/buf"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/crypto"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
@@ -25,8 +24,6 @@ type MemoryAccount struct {
 	CipherType CipherType
 	Key        []byte
 	Password   string
-
-	replayFilter antireplay.GeneralizedReplayFilter
 }
 
 var ErrIVNotUnique = errors.New("IV is not unique")
@@ -43,18 +40,7 @@ func (a *MemoryAccount) ToProto() proto.Message {
 	return &Account{
 		CipherType: a.CipherType,
 		Password:   a.Password,
-		IvCheck:    a.replayFilter != nil,
 	}
-}
-
-func (a *MemoryAccount) CheckIV(iv []byte) error {
-	if a.replayFilter == nil {
-		return nil
-	}
-	if a.replayFilter.Check(iv) {
-		return nil
-	}
-	return ErrIVNotUnique
 }
 
 func createAesGcm(key []byte) cipher.AEAD {
@@ -117,12 +103,6 @@ func (a *Account) AsAccount() (protocol.Account, error) {
 		CipherType: a.CipherType,
 		Key:        passwordToCipherKey([]byte(a.Password), Cipher.KeySize()),
 		Password:   a.Password,
-		replayFilter: func() antireplay.GeneralizedReplayFilter {
-			if a.IvCheck {
-				return antireplay.NewBloomRing()
-			}
-			return nil
-		}(),
 	}, nil
 }
 

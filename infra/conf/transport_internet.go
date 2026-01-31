@@ -16,7 +16,9 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/platform/filesystem"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/salamander"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/httpupgrade"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/hysteria"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/kcp"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/reality"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/splithttp"
@@ -289,8 +291,8 @@ func (c *SplitHTTPConfig) Build() (proto.Message, error) {
 		return nil, errors.New("maxConnections cannot be specified together with maxConcurrency")
 	}
 	if c.Xmux == (XmuxConfig{}) {
-		c.Xmux.MaxConcurrency.From = 16
-		c.Xmux.MaxConcurrency.To = 32
+		c.Xmux.MaxConcurrency.From = 1
+		c.Xmux.MaxConcurrency.To = 1
 		c.Xmux.HMaxRequestTimes.From = 600
 		c.Xmux.HMaxRequestTimes.To = 900
 		c.Xmux.HMaxReusableSecs.From = 1800
@@ -328,6 +330,177 @@ func (c *SplitHTTPConfig) Build() (proto.Message, error) {
 			return nil, errors.New(`Failed to build "downloadSettings".`).Base(err)
 		}
 	}
+
+	return config, nil
+}
+
+const (
+	Byte     = 1
+	Kilobyte = 1024 * Byte
+	Megabyte = 1024 * Kilobyte
+	Gigabyte = 1024 * Megabyte
+	Terabyte = 1024 * Gigabyte
+)
+
+type Bandwidth string
+
+func (b Bandwidth) Bps() (uint64, error) {
+	s := strings.TrimSpace(strings.ToLower(string(b)))
+	if s == "" {
+		return 0, nil
+	}
+
+	idx := len(s)
+	for i, c := range s {
+		if (c < '0' || c > '9') && c != '.' {
+			idx = i
+			break
+		}
+	}
+
+	numStr := s[:idx]
+	unit := strings.TrimSpace(s[idx:])
+
+	val, err := strconv.ParseFloat(numStr, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	mul := uint64(1)
+	switch unit {
+	case "", "b", "bps":
+		mul = Byte
+	case "k", "kb", "kbps":
+		mul = Kilobyte
+	case "m", "mb", "mbps":
+		mul = Megabyte
+	case "g", "gb", "gbps":
+		mul = Gigabyte
+	case "t", "tb", "tbps":
+		mul = Terabyte
+	default:
+		return 0, errors.New("unsupported unit: " + unit)
+	}
+
+	return uint64(val*float64(mul)) / 8, nil
+}
+
+type UdpHop struct {
+	PortList json.RawMessage `json:"port"`
+	Interval *Int32Range     `json:"interval"`
+}
+
+type HysteriaConfig struct {
+	Version    int32     `json:"version"`
+	Auth       string    `json:"auth"`
+	Congestion string    `json:"congestion"`
+	Up         Bandwidth `json:"up"`
+	Down       Bandwidth `json:"down"`
+	UdpHop     UdpHop    `json:"udphop"`
+
+	InitStreamReceiveWindow     uint64 `json:"initStreamReceiveWindow"`
+	MaxStreamReceiveWindow      uint64 `json:"maxStreamReceiveWindow"`
+	InitConnectionReceiveWindow uint64 `json:"initConnectionReceiveWindow"`
+	MaxConnectionReceiveWindow  uint64 `json:"maxConnectionReceiveWindow"`
+	MaxIdleTimeout              int64  `json:"maxIdleTimeout"`
+	KeepAlivePeriod             int64  `json:"keepAlivePeriod"`
+	DisablePathMTUDiscovery     bool   `json:"disablePathMTUDiscovery"`
+}
+
+func (c *HysteriaConfig) Build() (proto.Message, error) {
+	if c.Version != 2 {
+		return nil, errors.New("version != 2")
+	}
+
+	up, err := c.Up.Bps()
+	if err != nil {
+		return nil, err
+	}
+	down, err := c.Down.Bps()
+	if err != nil {
+		return nil, err
+	}
+
+	c.Congestion = strings.ToLower(c.Congestion)
+	if c.Congestion == "force-brutal" && up == 0 {
+		return nil, errors.New("force-brutal require up")
+	}
+
+	var hop *PortList
+	if err := json.Unmarshal(c.UdpHop.PortList, &hop); err != nil {
+		hop = &PortList{}
+	}
+
+	var inertvalMin, inertvalMax int64
+	if c.UdpHop.Interval != nil {
+		inertvalMin = int64(c.UdpHop.Interval.From)
+		inertvalMax = int64(c.UdpHop.Interval.To)
+	}
+
+	if up > 0 && up < 65536 {
+		return nil, errors.New("Up must be at least 65536 Bps")
+	}
+	if down > 0 && down < 65536 {
+		return nil, errors.New("Down must be at least 65536 Bps")
+	}
+	if (inertvalMin != 0 && inertvalMin < 5) || (inertvalMax != 0 && inertvalMax < 5) {
+		return nil, errors.New("Interval must be at least 5")
+	}
+
+	if c.InitStreamReceiveWindow > 0 && c.InitStreamReceiveWindow < 16384 {
+		return nil, errors.New("InitStreamReceiveWindow must be at least 16384")
+	}
+	if c.MaxStreamReceiveWindow > 0 && c.MaxStreamReceiveWindow < 16384 {
+		return nil, errors.New("MaxStreamReceiveWindow must be at least 16384")
+	}
+	if c.InitConnectionReceiveWindow > 0 && c.InitConnectionReceiveWindow < 16384 {
+		return nil, errors.New("InitConnectionReceiveWindow must be at least 16384")
+	}
+	if c.MaxConnectionReceiveWindow > 0 && c.MaxConnectionReceiveWindow < 16384 {
+		return nil, errors.New("MaxConnectionReceiveWindow must be at least 16384")
+	}
+	if c.MaxIdleTimeout != 0 && (c.MaxIdleTimeout < 4 || c.MaxIdleTimeout > 120) {
+		return nil, errors.New("MaxIdleTimeout must be between 4 and 120")
+	}
+	if c.KeepAlivePeriod != 0 && (c.KeepAlivePeriod < 2 || c.KeepAlivePeriod > 60) {
+		return nil, errors.New("KeepAlivePeriod must be between 2 and 60")
+	}
+
+	config := &hysteria.Config{}
+	config.Version = c.Version
+	config.Auth = c.Auth
+	config.Congestion = c.Congestion
+	config.Up = up
+	config.Down = down
+	config.Ports = hop.Build().Ports()
+	config.IntervalMin = inertvalMin
+	config.IntervalMax = inertvalMax
+	config.InitStreamReceiveWindow = c.InitStreamReceiveWindow
+	config.MaxStreamReceiveWindow = c.MaxStreamReceiveWindow
+	config.InitConnReceiveWindow = c.InitConnectionReceiveWindow
+	config.MaxConnReceiveWindow = c.MaxConnectionReceiveWindow
+	config.MaxIdleTimeout = c.MaxIdleTimeout
+	config.KeepAlivePeriod = c.KeepAlivePeriod
+	config.DisablePathMtuDiscovery = c.DisablePathMTUDiscovery
+
+	if config.InitStreamReceiveWindow == 0 {
+		config.InitStreamReceiveWindow = 8388608
+	}
+	if config.MaxStreamReceiveWindow == 0 {
+		config.MaxStreamReceiveWindow = 8388608
+	}
+	if config.InitConnReceiveWindow == 0 {
+		config.InitConnReceiveWindow = 8388608 * 5 / 2
+	}
+	if config.MaxConnReceiveWindow == 0 {
+		config.MaxConnReceiveWindow = 8388608 * 5 / 2
+	}
+	if config.MaxIdleTimeout == 0 {
+		config.MaxIdleTimeout = 30
+	}
+	// if config.KeepAlivePeriod == 0 {
+	// 	config.KeepAlivePeriod = 10
+	// }
 
 	return config, nil
 }
@@ -395,27 +568,26 @@ func (c *TLSCertConfig) Build() (*tls.Certificate, error) {
 }
 
 type TLSConfig struct {
-	Insecure                             bool             `json:"allowInsecure"`
-	Certs                                []*TLSCertConfig `json:"certificates"`
-	ServerName                           string           `json:"serverName"`
-	ALPN                                 *StringList      `json:"alpn"`
-	EnableSessionResumption              bool             `json:"enableSessionResumption"`
-	DisableSystemRoot                    bool             `json:"disableSystemRoot"`
-	MinVersion                           string           `json:"minVersion"`
-	MaxVersion                           string           `json:"maxVersion"`
-	CipherSuites                         string           `json:"cipherSuites"`
-	Fingerprint                          string           `json:"fingerprint"`
-	RejectUnknownSNI                     bool             `json:"rejectUnknownSni"`
-	PinnedPeerCertificateChainSha256     *[]string        `json:"pinnedPeerCertificateChainSha256"`
-	PinnedPeerCertificatePublicKeySha256 *[]string        `json:"pinnedPeerCertificatePublicKeySha256"`
-	CurvePreferences                     *StringList      `json:"curvePreferences"`
-	MasterKeyLog                         string           `json:"masterKeyLog"`
-	ServerNameToVerify                   string           `json:"serverNameToVerify"`
-	VerifyPeerCertInNames                []string         `json:"verifyPeerCertInNames"`
-	ECHServerKeys                        string           `json:"echServerKeys"`
-	ECHConfigList                        string           `json:"echConfigList"`
-	ECHForceQuery                        string           `json:"echForceQuery"`
-	ECHSocketSettings                    *SocketConfig    `json:"echSockopt"`
+	AllowInsecure           bool             `json:"allowInsecure"`
+	Certs                   []*TLSCertConfig `json:"certificates"`
+	ServerName              string           `json:"serverName"`
+	ALPN                    *StringList      `json:"alpn"`
+	EnableSessionResumption bool             `json:"enableSessionResumption"`
+	DisableSystemRoot       bool             `json:"disableSystemRoot"`
+	MinVersion              string           `json:"minVersion"`
+	MaxVersion              string           `json:"maxVersion"`
+	CipherSuites            string           `json:"cipherSuites"`
+	Fingerprint             string           `json:"fingerprint"`
+	RejectUnknownSNI        bool             `json:"rejectUnknownSni"`
+	CurvePreferences        *StringList      `json:"curvePreferences"`
+	MasterKeyLog            string           `json:"masterKeyLog"`
+	PinnedPeerCertSha256    string           `json:"pinnedPeerCertSha256"`
+	VerifyPeerCertByName    string           `json:"verifyPeerCertByName"`
+	VerifyPeerCertInNames   []string         `json:"verifyPeerCertInNames"`
+	ECHServerKeys           string           `json:"echServerKeys"`
+	ECHConfigList           string           `json:"echConfigList"`
+	ECHForceQuery           string           `json:"echForceQuery"`
+	ECHSocketSettings       *SocketConfig    `json:"echSockopt"`
 }
 
 // Build implements Buildable.
@@ -430,7 +602,6 @@ func (c *TLSConfig) Build() (proto.Message, error) {
 		config.Certificate[idx] = cert
 	}
 	serverName := c.ServerName
-	config.AllowInsecure = c.Insecure
 	if len(c.ServerName) > 0 {
 		config.ServerName = serverName
 	}
@@ -457,35 +628,37 @@ func (c *TLSConfig) Build() (proto.Message, error) {
 		return nil, errors.New(`unknown "fingerprint": `, config.Fingerprint)
 	}
 	config.RejectUnknownSni = c.RejectUnknownSNI
-
-	if c.PinnedPeerCertificateChainSha256 != nil {
-		config.PinnedPeerCertificateChainSha256 = [][]byte{}
-		for _, v := range *c.PinnedPeerCertificateChainSha256 {
-			hashValue, err := base64.StdEncoding.DecodeString(v)
-			if err != nil {
-				return nil, err
-			}
-			config.PinnedPeerCertificateChainSha256 = append(config.PinnedPeerCertificateChainSha256, hashValue)
-		}
-	}
-
-	if c.PinnedPeerCertificatePublicKeySha256 != nil {
-		config.PinnedPeerCertificatePublicKeySha256 = [][]byte{}
-		for _, v := range *c.PinnedPeerCertificatePublicKeySha256 {
-			hashValue, err := base64.StdEncoding.DecodeString(v)
-			if err != nil {
-				return nil, err
-			}
-			config.PinnedPeerCertificatePublicKeySha256 = append(config.PinnedPeerCertificatePublicKeySha256, hashValue)
-		}
-	}
-
 	config.MasterKeyLog = c.MasterKeyLog
 
-	if c.ServerNameToVerify != "" {
-		return nil, errors.PrintRemovedFeatureError(`"serverNameToVerify"`, `"verifyPeerCertInNames"`)
+	if c.AllowInsecure {
+		return nil, errors.PrintRemovedFeatureError(`"allowInsecure"`, `"pinnedPeerCertSha256"`)
 	}
-	config.VerifyPeerCertInNames = c.VerifyPeerCertInNames
+	if c.PinnedPeerCertSha256 != "" {
+		for v := range strings.SplitSeq(c.PinnedPeerCertSha256, ",") {
+			v = strings.TrimSpace(v)
+			if v == "" {
+				continue
+			}
+			hashValue, err := hex.DecodeString(v)
+			if err != nil {
+				return nil, err
+			}
+			config.PinnedPeerCertSha256 = append(config.PinnedPeerCertSha256, hashValue)
+		}
+	}
+
+	if c.VerifyPeerCertInNames != nil {
+		return nil, errors.PrintRemovedFeatureError(`"verifyPeerCertInNames"`, `"verifyPeerCertByName"`)
+	}
+	if c.VerifyPeerCertByName != "" {
+		for v := range strings.SplitSeq(c.VerifyPeerCertByName, ",") {
+			v = strings.TrimSpace(v)
+			if v == "" {
+				continue
+			}
+			config.VerifyPeerCertByName = append(config.VerifyPeerCertByName, v)
+		}
+	}
 
 	if c.ECHServerKeys != "" {
 		EchPrivateKey, err := base64.StdEncoding.DecodeString(c.ECHServerKeys)
@@ -628,6 +801,9 @@ func (c *REALITYConfig) Build() (proto.Message, error) {
 		}
 		config.ShortIds = make([][]byte, len(c.ShortIds))
 		for i, s := range c.ShortIds {
+			if len(s) > 16 {
+				return nil, errors.New(`too long "shortIds[`, i, `]": `, s)
+			}
 			config.ShortIds[i] = make([]byte, 8)
 			if _, err = hex.Decode(config.ShortIds[i], []byte(s)); err != nil {
 				return nil, errors.New(`invalid "shortIds[`, i, `]": `, s)
@@ -678,6 +854,9 @@ func (c *REALITYConfig) Build() (proto.Message, error) {
 		}
 		if len(c.ShortIds) != 0 {
 			return nil, errors.New(`non-empty "shortIds", please use "shortId" instead`)
+		}
+		if len(c.ShortIds) > 16 {
+			return nil, errors.New(`too long "shortId": `, c.ShortId)
 		}
 		config.ShortId = make([]byte, 8)
 		if _, err = hex.Decode(config.ShortId, []byte(c.ShortId)); err != nil {
@@ -734,18 +913,20 @@ func (p TransportProtocol) Build() (string, error) {
 	case "kcp", "mkcp":
 		return "mkcp", nil
 	case "grpc":
-		errors.PrintDeprecatedFeatureWarning("gRPC transport (with unnecessary costs, etc.)", "XHTTP stream-up H2")
+		errors.PrintNonRemovalDeprecatedFeatureWarning("gRPC transport (with unnecessary costs, etc.)", "XHTTP stream-up H2")
 		return "grpc", nil
 	case "ws", "websocket":
-		errors.PrintDeprecatedFeatureWarning("WebSocket transport (with ALPN http/1.1, etc.)", "XHTTP H2 & H3")
+		errors.PrintNonRemovalDeprecatedFeatureWarning("WebSocket transport (with ALPN http/1.1, etc.)", "XHTTP H2 & H3")
 		return "websocket", nil
 	case "httpupgrade":
-		errors.PrintDeprecatedFeatureWarning("HTTPUpgrade transport (with ALPN http/1.1, etc.)", "XHTTP H2 & H3")
+		errors.PrintNonRemovalDeprecatedFeatureWarning("HTTPUpgrade transport (with ALPN http/1.1, etc.)", "XHTTP H2 & H3")
 		return "httpupgrade", nil
 	case "h2", "h3", "http":
 		return "", errors.PrintRemovedFeatureError("HTTP transport (without header padding, etc.)", "XHTTP stream-one H2 & H3")
 	case "quic":
 		return "", errors.PrintRemovedFeatureError("QUIC transport (without web service, etc.)", "XHTTP stream-one H3")
+	case "hysteria":
+		return "hysteria", nil
 	default:
 		return "", errors.New("Config: unknown transport protocol: ", p)
 	}
@@ -804,6 +985,7 @@ type SocketConfig struct {
 	CustomSockopt         []*CustomSockoptConfig `json:"customSockopt"`
 	AddressPortStrategy   string                 `json:"addressPortStrategy"`
 	HappyEyeballsSettings *HappyEyeballsConfig   `json:"happyEyeballs"`
+	TrustedXForwardedFor  []string               `json:"trustedXForwardedFor"`
 }
 
 // Build implements Buildable.
@@ -923,7 +1105,50 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		CustomSockopt:        customSockopts,
 		AddressPortStrategy:  addressPortStrategy,
 		HappyEyeballs:        happyEyeballs,
+		TrustedXForwardedFor: c.TrustedXForwardedFor,
 	}, nil
+}
+
+var (
+	udpmaskLoader = NewJSONConfigLoader(ConfigCreatorCache{
+		"salamander": func() interface{} { return new(Salamander) },
+	}, "type", "settings")
+)
+
+type Salamander struct {
+	Password string `json:"password"`
+}
+
+func (c *Salamander) Build() (proto.Message, error) {
+	config := &salamander.Config{}
+	config.Password = c.Password
+	return config, nil
+}
+
+type FinalMask struct {
+	Type     string           `json:"type"`
+	Settings *json.RawMessage `json:"settings"`
+}
+
+func (c *FinalMask) Build(tcpmaskLoader bool) (proto.Message, error) {
+	loader := udpmaskLoader
+	if tcpmaskLoader {
+		return nil, errors.New("")
+	}
+
+	settings := []byte("{}")
+	if c.Settings != nil {
+		settings = ([]byte)(*c.Settings)
+	}
+	rawConfig, err := loader.LoadWithID(settings, c.Type)
+	if err != nil {
+		return nil, err
+	}
+	ts, err := rawConfig.(Buildable).Build()
+	if err != nil {
+		return nil, err
+	}
+	return ts, nil
 }
 
 type StreamConfig struct {
@@ -931,6 +1156,7 @@ type StreamConfig struct {
 	Port                uint16             `json:"port"`
 	Network             *TransportProtocol `json:"network"`
 	Security            string             `json:"security"`
+	Udpmasks            []*FinalMask       `json:"udpmasks"`
 	TLSSettings         *TLSConfig         `json:"tlsSettings"`
 	REALITYSettings     *REALITYConfig     `json:"realitySettings"`
 	RAWSettings         *TCPConfig         `json:"rawSettings"`
@@ -941,6 +1167,7 @@ type StreamConfig struct {
 	GRPCSettings        *GRPCConfig        `json:"grpcSettings"`
 	WSSettings          *WebSocketConfig   `json:"wsSettings"`
 	HTTPUPGRADESettings *HttpUpgradeConfig `json:"httpupgradeSettings"`
+	HysteriaSettings    *HysteriaConfig    `json:"hysteriaSettings"`
 	SocketSettings      *SocketConfig      `json:"sockopt"`
 }
 
@@ -960,6 +1187,7 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		}
 		config.ProtocolName = protocol
 	}
+
 	switch strings.ToLower(c.Security) {
 	case "", "none":
 	case "tls":
@@ -993,6 +1221,7 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 	default:
 		return nil, errors.New(`Unknown security "` + c.Security + `".`)
 	}
+
 	if c.RAWSettings != nil {
 		c.TCPSettings = c.RAWSettings
 	}
@@ -1059,6 +1288,16 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
+	if c.HysteriaSettings != nil {
+		hs, err := c.HysteriaSettings.Build()
+		if err != nil {
+			return nil, errors.New("Failed to build Hysteria config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "hysteria",
+			Settings:     serial.ToTypedMessage(hs),
+		})
+	}
 	if c.SocketSettings != nil {
 		ss, err := c.SocketSettings.Build()
 		if err != nil {
@@ -1066,6 +1305,15 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		}
 		config.SocketSettings = ss
 	}
+
+	for _, mask := range c.Udpmasks {
+		u, err := mask.Build(false)
+		if err != nil {
+			return nil, errors.New("failed to build mask with type ", mask.Type).Base(err)
+		}
+		config.Udpmasks = append(config.Udpmasks, serial.ToTypedMessage(u))
+	}
+
 	return config, nil
 }
 
