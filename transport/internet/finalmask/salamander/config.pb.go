@@ -69,10 +69,10 @@ var File_transport_internet_finalmask_salamander_config_proto protoreflect.FileD
 
 const file_transport_internet_finalmask_salamander_config_proto_rawDesc = "" +
 	"\n" +
-	"4transport/internet/finalmask/salamander/config.proto\x12*xray.transport.internet.udpmask.salamander\"$\n" +
+	"4transport/internet/finalmask/salamander/config.proto\x12,xray.transport.internet.finalmask.salamander\"$\n" +
 	"\x06Config\x12\x1a\n" +
-	"\bpassword\x18\x01 \x01(\tR\bpasswordB\xaf\x01\n" +
-	".com.xray.transport.internet.udpmask.salamanderP\x01ZNgithub.com/amnezia-vpn/amnezia-xray-core/transport/internet/udpmask/salamander\xaa\x02*Xray.Transport.Internet.Udpmask.Salamanderb\x06proto3"
+	"\bpassword\x18\x01 \x01(\tR\bpasswordB\xb5\x01\n" +
+	"0com.xray.transport.internet.finalmask.salamanderP\x01ZPgithub.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/salamander\xaa\x02,Xray.Transport.Internet.Finalmask.Salamanderb\x06proto3"
 
 var (
 	file_transport_internet_finalmask_salamander_config_proto_rawDescOnce sync.Once
@@ -88,7 +88,7 @@ func file_transport_internet_finalmask_salamander_config_proto_rawDescGZIP() []b
 
 var file_transport_internet_finalmask_salamander_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_transport_internet_finalmask_salamander_config_proto_goTypes = []any{
-	(*Config)(nil), // 0: xray.transport.internet.udpmask.salamander.Config
+	(*Config)(nil), // 0: xray.transport.internet.finalmask.salamander.Config
 }
 var file_transport_internet_finalmask_salamander_config_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
