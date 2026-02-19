@@ -6,6 +6,7 @@ import (
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/crypto"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/utils"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 )
 
@@ -46,6 +47,9 @@ func (c *Config) GetRequestHeader() http.Header {
 	header := http.Header{}
 	for k, v := range c.Headers {
 		header.Add(k, v)
+	}
+	if header.Get("User-Agent") == "" {
+		header.Set("User-Agent", utils.ChromeUA)
 	}
 	return header
 }

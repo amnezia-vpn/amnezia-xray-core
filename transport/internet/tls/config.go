@@ -289,9 +289,6 @@ func (r *RandCarrier) verifyPeerCert(rawCerts [][]byte, verifiedChains [][]*x509
 	if len(certs) == 0 {
 		return errors.New("unexpected certs")
 	}
-	if certs[0].IsCA {
-		slices.Reverse(certs)
-	}
 
 	// directly return success if pinned cert is leaf
 	// or replace RootCAs if pinned cert is CA (and can be used in VerifyPeerCertByName)
@@ -384,6 +381,7 @@ func (c *Config) GetTLSConfig(opts ...Option) *tls.Config {
 		PinnedPeerCertSha256: c.PinnedPeerCertSha256,
 	}
 	config := &tls.Config{
+		InsecureSkipVerify:     c.AllowInsecure,
 		Rand:                   randCarrier,
 		ClientSessionCache:     globalSessionCache,
 		RootCAs:                root,
@@ -526,11 +524,13 @@ func ConfigFromStreamSettings(settings *internet.MemoryStreamConfig) *Config {
 
 func ParseCurveName(curveNames []string) []tls.CurveID {
 	curveMap := map[string]tls.CurveID{
-		"curvep256":      tls.CurveP256,
-		"curvep384":      tls.CurveP384,
-		"curvep521":      tls.CurveP521,
-		"x25519":         tls.X25519,
-		"x25519mlkem768": tls.X25519MLKEM768,
+		"curvep256":          tls.CurveP256,
+		"curvep384":          tls.CurveP384,
+		"curvep521":          tls.CurveP521,
+		"x25519":             tls.X25519,
+		"x25519mlkem768":     tls.X25519MLKEM768,
+		"secp256r1mlkem768":  tls.SecP256r1MLKEM768,
+		"secp384r1mlkem1024": tls.SecP384r1MLKEM1024,
 	}
 
 	var curveIDs []tls.CurveID
@@ -557,14 +557,19 @@ const (
 )
 
 func verifyChain(certs []*x509.Certificate, pinnedPeerCertSha256 [][]byte) (verifyResult, *x509.Certificate) {
+	leafHash := GenerateCertHash(certs[0])
+	for _, c := range pinnedPeerCertSha256 {
+		if hmac.Equal(leafHash, c) {
+			return foundLeaf, nil
+		}
+	}
+	certs = certs[1:] // skip leaf
 	for _, cert := range certs {
 		certHash := GenerateCertHash(cert)
 		for _, c := range pinnedPeerCertSha256 {
 			if hmac.Equal(certHash, c) {
 				if cert.IsCA {
 					return foundCA, cert
-				} else {
-					return foundLeaf, cert
 				}
 			}
 		}

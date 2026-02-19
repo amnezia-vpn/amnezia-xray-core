@@ -19,6 +19,8 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/stats"
 	"github.com/amnezia-vpn/amnezia-xray-core/proxy"
+	"github.com/amnezia-vpn/amnezia-xray-core/proxy/hysteria/account"
+	hyCtx "github.com/amnezia-vpn/amnezia-xray-core/proxy/hysteria/ctx"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/stat"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tcp"
@@ -138,6 +140,13 @@ func (w *tcpWorker) Proxy() proxy.Inbound {
 
 func (w *tcpWorker) Start() error {
 	ctx := context.Background()
+
+	type HysteriaInboundValidator interface{ HysteriaInboundValidator() *account.Validator }
+	if v, ok := w.proxy.(HysteriaInboundValidator); ok {
+		ctx = hyCtx.ContextWithRequireDatagram(ctx, true)
+		ctx = hyCtx.ContextWithValidator(ctx, v.HysteriaInboundValidator())
+	}
+
 	hub, err := internet.ListenTCP(ctx, w.address, w.port, w.stream, func(conn stat.Connection) {
 		go w.callback(conn)
 	})
