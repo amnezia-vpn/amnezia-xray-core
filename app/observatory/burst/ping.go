@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/utils"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/routing"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tagged"
 )
@@ -61,6 +62,7 @@ func (s *pingClient) MeasureDelay(httpMethod string) (time.Duration, error) {
 	if err != nil {
 		return rttFailed, err
 	}
+	req.Header.Set("User-Agent", utils.ChromeUA)
 
 	start := time.Now()
 	resp, err := s.httpClient.Do(req)

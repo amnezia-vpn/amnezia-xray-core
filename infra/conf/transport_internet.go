@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -10,13 +11,24 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/platform/filesystem"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/header/dns"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/header/dtls"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/header/srtp"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/header/utp"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/header/wechat"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/header/wireguard"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/mkcp/aes128gcm"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/mkcp/original"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/salamander"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/xdns"
+	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/finalmask/xicmp"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/httpupgrade"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/hysteria"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/kcp"
@@ -29,16 +41,6 @@ import (
 )
 
 var (
-	kcpHeaderLoader = NewJSONConfigLoader(ConfigCreatorCache{
-		"none":         func() interface{} { return new(NoOpAuthenticator) },
-		"srtp":         func() interface{} { return new(SRTPAuthenticator) },
-		"utp":          func() interface{} { return new(UTPAuthenticator) },
-		"wechat-video": func() interface{} { return new(WechatVideoAuthenticator) },
-		"dtls":         func() interface{} { return new(DTLSAuthenticator) },
-		"wireguard":    func() interface{} { return new(WireguardAuthenticator) },
-		"dns":          func() interface{} { return new(DNSAuthenticator) },
-	}, "type", "")
-
 	tcpHeaderLoader = NewJSONConfigLoader(ConfigCreatorCache{
 		"none": func() interface{} { return new(NoOpConnectionAuthenticator) },
 		"http": func() interface{} { return new(Authenticator) },
@@ -63,9 +65,9 @@ func (c *KCPConfig) Build() (proto.Message, error) {
 
 	if c.Mtu != nil {
 		mtu := *c.Mtu
-		if mtu < 576 || mtu > 1460 {
-			return nil, errors.New("invalid mKCP MTU size: ", mtu).AtError()
-		}
+		// if mtu < 576 || mtu > 1460 {
+		// 	return nil, errors.New("invalid mKCP MTU size: ", mtu).AtError()
+		// }
 		config.Mtu = &kcp.MTU{Value: mtu}
 	}
 	if c.Tti != nil {
@@ -100,20 +102,8 @@ func (c *KCPConfig) Build() (proto.Message, error) {
 			config.WriteBuffer = &kcp.WriteBuffer{Size: 512 * 1024}
 		}
 	}
-	if len(c.HeaderConfig) > 0 {
-		headerConfig, _, err := kcpHeaderLoader.Load(c.HeaderConfig)
-		if err != nil {
-			return nil, errors.New("invalid mKCP header config.").Base(err).AtError()
-		}
-		ts, err := headerConfig.(Buildable).Build()
-		if err != nil {
-			return nil, errors.New("invalid mKCP header config").Base(err).AtError()
-		}
-		config.HeaderConfig = serial.ToTypedMessage(ts)
-	}
-
-	if c.Seed != nil {
-		config.Seed = &kcp.EncryptionSeed{Seed: *c.Seed}
+	if c.HeaderConfig != nil || c.Seed != nil {
+		return nil, errors.PrintRemovedFeatureError("mkcp header & seed", "finalmask/udp header-* & mkcp-original & mkcp-aes128gcm")
 	}
 
 	return config, nil
@@ -228,6 +218,19 @@ type SplitHTTPConfig struct {
 	Mode                 string            `json:"mode"`
 	Headers              map[string]string `json:"headers"`
 	XPaddingBytes        Int32Range        `json:"xPaddingBytes"`
+	XPaddingObfsMode     bool              `json:"xPaddingObfsMode"`
+	XPaddingKey          string            `json:"xPaddingKey"`
+	XPaddingHeader       string            `json:"xPaddingHeader"`
+	XPaddingPlacement    string            `json:"xPaddingPlacement"`
+	XPaddingMethod       string            `json:"xPaddingMethod"`
+	UplinkHTTPMethod     string            `json:"uplinkHTTPMethod"`
+	SessionPlacement     string            `json:"sessionPlacement"`
+	SessionKey           string            `json:"sessionKey"`
+	SeqPlacement         string            `json:"seqPlacement"`
+	SeqKey               string            `json:"seqKey"`
+	UplinkDataPlacement  string            `json:"uplinkDataPlacement"`
+	UplinkDataKey        string            `json:"uplinkDataKey"`
+	UplinkChunkSize      uint32            `json:"uplinkChunkSize"`
 	NoGRPCHeader         bool              `json:"noGRPCHeader"`
 	NoSSEHeader          bool              `json:"noSSEHeader"`
 	ScMaxEachPostBytes   Int32Range        `json:"scMaxEachPostBytes"`
@@ -287,6 +290,108 @@ func (c *SplitHTTPConfig) Build() (proto.Message, error) {
 		return nil, errors.New("xPaddingBytes cannot be disabled")
 	}
 
+	if c.XPaddingKey == "" {
+		c.XPaddingKey = "x_padding"
+	}
+
+	if c.XPaddingHeader == "" {
+		c.XPaddingHeader = "X-Padding"
+	}
+
+	switch c.XPaddingPlacement {
+	case "":
+		c.XPaddingPlacement = "queryInHeader"
+	case "cookie", "header", "query", "queryInHeader":
+	default:
+		return nil, errors.New("unsupported padding placement: " + c.XPaddingPlacement)
+	}
+
+	switch c.XPaddingMethod {
+	case "":
+		c.XPaddingMethod = "repeat-x"
+	case "repeat-x", "tokenish":
+	default:
+		return nil, errors.New("unsupported padding method: " + c.XPaddingMethod)
+	}
+
+	switch c.UplinkDataPlacement {
+	case "":
+		c.UplinkDataPlacement = "body"
+	case "body":
+	case "cookie", "header":
+		if c.Mode != "packet-up" {
+			return nil, errors.New("UplinkDataPlacement can be " + c.UplinkDataPlacement + " only in packet-up mode")
+		}
+	default:
+		return nil, errors.New("unsupported uplink data placement: " + c.UplinkDataPlacement)
+	}
+
+	if c.UplinkHTTPMethod == "" {
+		c.UplinkHTTPMethod = "POST"
+	}
+	c.UplinkHTTPMethod = strings.ToUpper(c.UplinkHTTPMethod)
+
+	if c.UplinkHTTPMethod == "GET" && c.Mode != "packet-up" {
+		return nil, errors.New("uplinkHTTPMethod can be GET only in packet-up mode")
+	}
+
+	switch c.SessionPlacement {
+	case "":
+		c.SessionPlacement = "path"
+	case "path", "cookie", "header", "query":
+	default:
+		return nil, errors.New("unsupported session placement: " + c.SessionPlacement)
+	}
+
+	switch c.SeqPlacement {
+	case "":
+		c.SeqPlacement = "path"
+	case "path", "cookie", "header", "query":
+		if c.SessionPlacement == "path" {
+			return nil, errors.New("SeqPlacement must be path when SessionPlacement is path")
+		}
+	default:
+		return nil, errors.New("unsupported seq placement: " + c.SeqPlacement)
+	}
+
+	if c.SessionPlacement != "path" && c.SessionKey == "" {
+		switch c.SessionPlacement {
+		case "cookie", "query":
+			c.SessionKey = "x_session"
+		case "header":
+			c.SessionKey = "X-Session"
+		}
+	}
+
+	if c.SeqPlacement != "path" && c.SeqKey == "" {
+		switch c.SeqPlacement {
+		case "cookie", "query":
+			c.SeqKey = "x_seq"
+		case "header":
+			c.SeqKey = "X-Seq"
+		}
+	}
+
+	if c.UplinkDataPlacement != "body" && c.UplinkDataKey == "" {
+		switch c.UplinkDataPlacement {
+		case "cookie":
+			c.UplinkDataKey = "x_data"
+		case "header":
+			c.UplinkDataKey = "X-Data"
+		}
+	}
+
+	if c.UplinkChunkSize == 0 {
+		switch c.UplinkDataPlacement {
+		case "cookie":
+			c.UplinkChunkSize = 3 * 1024 // 3KB
+		case "header":
+			c.UplinkChunkSize = 4 * 1024 // 4KB
+		}
+	} else if c.UplinkChunkSize < 64 {
+		c.UplinkChunkSize = 64
+	}
+
 	if c.Xmux.MaxConnections.To > 0 && c.Xmux.MaxConcurrency.To > 0 {
 		return nil, errors.New("maxConnections cannot be specified together with maxConcurrency")
 	}
@@ -305,6 +410,19 @@ func (c *SplitHTTPConfig) Build() (proto.Message, error) {
 		Mode:                 c.Mode,
 		Headers:              c.Headers,
 		XPaddingBytes:        newRangeConfig(c.XPaddingBytes),
+		XPaddingObfsMode:     c.XPaddingObfsMode,
+		XPaddingKey:          c.XPaddingKey,
+		XPaddingHeader:       c.XPaddingHeader,
+		XPaddingPlacement:    c.XPaddingPlacement,
+		XPaddingMethod:       c.XPaddingMethod,
+		UplinkHTTPMethod:     c.UplinkHTTPMethod,
+		SessionPlacement:     c.SessionPlacement,
+		SeqPlacement:         c.SeqPlacement,
+		SessionKey:           c.SessionKey,
+		SeqKey:               c.SeqKey,
+		UplinkDataPlacement:  c.UplinkDataPlacement,
+		UplinkDataKey:        c.UplinkDataKey,
+		UplinkChunkSize:      c.UplinkChunkSize,
 		NoGRPCHeader:         c.NoGRPCHeader,
 		NoSSEHeader:          c.NoSSEHeader,
 		ScMaxEachPostBytes:   newRangeConfig(c.ScMaxEachPostBytes),
@@ -631,7 +749,12 @@ func (c *TLSConfig) Build() (proto.Message, error) {
 	config.MasterKeyLog = c.MasterKeyLog
 
 	if c.AllowInsecure {
-		return nil, errors.PrintRemovedFeatureError(`"allowInsecure"`, `"pinnedPeerCertSha256"`)
+		if time.Now().After(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)) {
+			return nil, errors.PrintRemovedFeatureError(`"allowInsecure"`, `"pinnedPeerCertSha256"`)
+		} else {
+			errors.LogWarning(context.Background(), `"allowInsecure" will be removed automatically after 2026-06-01, please use "pinnedPeerCertSha256"(pcs) and "verifyPeerCertByName"(vcn) instead, PLEASE CONTACT YOUR SERVICE PROVIDER (AIRPORT)`)
+			config.AllowInsecure = true
+		}
 	}
 	if c.PinnedPeerCertSha256 != "" {
 		for v := range strings.SplitSeq(c.PinnedPeerCertSha256, ",") {
@@ -639,9 +762,13 @@ func (c *TLSConfig) Build() (proto.Message, error) {
 			if v == "" {
 				continue
 			}
-			hashValue, err := hex.DecodeString(v)
+			// remove colons for OpenSSL format
+			hashValue, err := hex.DecodeString(strings.ReplaceAll(v, ":", ""))
 			if err != nil {
 				return nil, err
+			}
+			if len(hashValue) != 32 {
+				return nil, errors.New("incorrect pinnedPeerCertSha256 length: ", v)
 			}
 			config.PinnedPeerCertSha256 = append(config.PinnedPeerCertSha256, hashValue)
 		}
@@ -1111,9 +1238,80 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 
 var (
 	udpmaskLoader = NewJSONConfigLoader(ConfigCreatorCache{
-		"salamander": func() interface{} { return new(Salamander) },
+		"header-dns":       func() interface{} { return new(Dns) },
+		"header-dtls":      func() interface{} { return new(Dtls) },
+		"header-srtp":      func() interface{} { return new(Srtp) },
+		"header-utp":       func() interface{} { return new(Utp) },
+		"header-wechat":    func() interface{} { return new(Wechat) },
+		"header-wireguard": func() interface{} { return new(Wireguard) },
+		"mkcp-original":    func() interface{} { return new(Original) },
+		"mkcp-aes128gcm":   func() interface{} { return new(Aes128Gcm) },
+		"salamander":       func() interface{} { return new(Salamander) },
+		"xdns":             func() interface{} { return new(Xdns) },
+		"xicmp":            func() interface{} { return new(Xicmp) },
 	}, "type", "settings")
 )
+
+type Dns struct {
+	Domain string `json:"domain"`
+}
+
+func (c *Dns) Build() (proto.Message, error) {
+	config := &dns.Config{}
+	config.Domain = "www.baidu.com"
+
+	if len(c.Domain) > 0 {
+		config.Domain = c.Domain
+	}
+
+	return config, nil
+}
+
+type Dtls struct{}
+
+func (c *Dtls) Build() (proto.Message, error) {
+	return &dtls.Config{}, nil
+}
+
+type Srtp struct{}
+
+func (c *Srtp) Build() (proto.Message, error) {
+	return &srtp.Config{}, nil
+}
+
+type Utp struct{}
+
+func (c *Utp) Build() (proto.Message, error) {
+	return &utp.Config{}, nil
+}
+
+type Wechat struct{}
+
+func (c *Wechat) Build() (proto.Message, error) {
+	return &wechat.Config{}, nil
+}
+
+type Wireguard struct{}
+
+func (c *Wireguard) Build() (proto.Message, error) {
+	return &wireguard.Config{}, nil
+}
+
+type Original struct{}
+
+func (c *Original) Build() (proto.Message, error) {
+	return &original.Config{}, nil
+}
+
+type Aes128Gcm struct {
+	Password string `json:"password"`
+}
+
+func (c *Aes128Gcm) Build() (proto.Message, error) {
+	return &aes128gcm.Config{
+		Password: c.Password,
+	}, nil
+}
 
 type Salamander struct {
 	Password string `json:"password"`
@@ -1125,14 +1323,46 @@ func (c *Salamander) Build() (proto.Message, error) {
 	return config, nil
 }
 
-type FinalMask struct {
+type Xdns struct {
+	Domain string `json:"domain"`
+}
+
+func (c *Xdns) Build() (proto.Message, error) {
+	if c.Domain == "" {
+		return nil, errors.New("empty domain")
+	}
+
+	return &xdns.Config{
+		Domain: c.Domain,
+	}, nil
+}
+
+type Xicmp struct {
+	ListenIp string `json:"listenIp"`
+	Id       uint16 `json:"id"`
+}
+
+func (c *Xicmp) Build() (proto.Message, error) {
+	config := &xicmp.Config{
+		Ip: c.ListenIp,
+		Id: int32(c.Id),
+	}
+
+	if config.Ip == "" {
+		config.Ip = "0.0.0.0"
+	}
+
+	return config, nil
+}
+
+type Mask struct {
 	Type     string           `json:"type"`
 	Settings *json.RawMessage `json:"settings"`
 }
 
-func (c *FinalMask) Build(tcpmaskLoader bool) (proto.Message, error) {
+func (c *Mask) Build(tcp bool) (proto.Message, error) {
 	loader := udpmaskLoader
-	if tcpmaskLoader {
+	if tcp {
 		return nil, errors.New("")
 	}
 
@@ -1151,12 +1381,17 @@ func (c *FinalMask) Build(tcpmaskLoader bool) (proto.Message, error) {
 	return ts, nil
 }
 
+type FinalMask struct {
+	Tcp []Mask `json:"tcp"`
+	Udp []Mask `json:"udp"`
+}
+
 type StreamConfig struct {
 	Address             *Address           `json:"address"`
 	Port                uint16             `json:"port"`
 	Network             *TransportProtocol `json:"network"`
 	Security            string             `json:"security"`
-	Udpmasks            []*FinalMask       `json:"udpmasks"`
+	FinalMask           *FinalMask         `json:"finalmask"`
 	TLSSettings         *TLSConfig         `json:"tlsSettings"`
 	REALITYSettings     *REALITYConfig     `json:"realitySettings"`
 	RAWSettings         *TCPConfig         `json:"rawSettings"`
@@ -1306,12 +1541,21 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		config.SocketSettings = ss
 	}
 
-	for _, mask := range c.Udpmasks {
-		u, err := mask.Build(false)
-		if err != nil {
-			return nil, errors.New("failed to build mask with type ", mask.Type).Base(err)
+	if c.FinalMask != nil {
+		for _, mask := range c.FinalMask.Tcp {
+			u, err := mask.Build(true)
+			if err != nil {
+				return nil, errors.New("failed to build mask with type ", mask.Type).Base(err)
+			}
+			config.Tcpmasks = append(config.Tcpmasks, serial.ToTypedMessage(u))
 		}
-		config.Udpmasks = append(config.Udpmasks, serial.ToTypedMessage(u))
+		for _, mask := range c.FinalMask.Udp {
+			u, err := mask.Build(false)
+			if err != nil {
+				return nil, errors.New("failed to build mask with type ", mask.Type).Base(err)
+			}
+			config.Udpmasks = append(config.Udpmasks, serial.ToTypedMessage(u))
+		}
 	}
 
 	return config, nil

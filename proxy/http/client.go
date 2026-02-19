@@ -21,6 +21,7 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/session"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/signal"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/task"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/utils"
 	"github.com/amnezia-vpn/amnezia-xray-core/core"
 	"github.com/amnezia-vpn/amnezia-xray-core/features/policy"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport"
@@ -218,6 +219,9 @@ func setUpHTTPTunnel(ctx context.Context, dest net.Destination, target string, u
 
 	for _, h := range header {
 		req.Header.Set(h.Key, h.Value)
+	}
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", utils.ChromeUA)
 	}
 
 	connectHTTP1 := func(rawConn net.Conn) (net.Conn, error) {
