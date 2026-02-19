@@ -63,11 +63,6 @@ import (
 	// Transport headers
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/http"
 	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/noop"
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/srtp"
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/tls"
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/utp"
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/wechat"
-	_ "github.com/amnezia-vpn/amnezia-xray-core/transport/internet/headers/wireguard"
 
 	// JSON & TOML & YAML
 	_ "github.com/amnezia-vpn/amnezia-xray-core/main/json"

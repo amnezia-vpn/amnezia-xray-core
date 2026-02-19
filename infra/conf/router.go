@@ -12,6 +12,7 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/app/router"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/platform"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/platform/filesystem"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/serial"
 	"google.golang.org/protobuf/proto"
@@ -204,6 +205,13 @@ func loadIP(file, code string) ([]*router.CIDR, error) {
 }
 
 func loadSite(file, code string) ([]*router.Domain, error) {
+
+	// Check if domain matcher cache is provided via environment
+	domainMatcherPath := platform.NewEnvFlag(platform.MphCachePath).GetValue(func() string { return "" })
+	if domainMatcherPath != "" {
+		return []*router.Domain{{}}, nil
+	}
+
 	bs, err := loadFile(file, code)
 	if err != nil {
 		return nil, err

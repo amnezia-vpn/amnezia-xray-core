@@ -24,6 +24,7 @@ import (
 	"github.com/amnezia-vpn/amnezia-xray-core/common/crypto"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/errors"
 	"github.com/amnezia-vpn/amnezia-xray-core/common/net"
+	"github.com/amnezia-vpn/amnezia-xray-core/common/utils"
 	"github.com/amnezia-vpn/amnezia-xray-core/core"
 	"github.com/amnezia-vpn/amnezia-xray-core/transport/internet/tls"
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
@@ -222,7 +223,7 @@ func UClient(c net.Conn, config *Config, ctx context.Context, dest net.Destinati
 				if req == nil {
 					return
 				}
-				req.Header.Set("User-Agent", fingerprint.Client) // TODO: User-Agent map
+				req.Header.Set("User-Agent", utils.ChromeUA)
 				if first && config.Show {
 					fmt.Printf("REALITY localAddr: %v\treq.UserAgent(): %v\n", localAddr, req.UserAgent())
 				}

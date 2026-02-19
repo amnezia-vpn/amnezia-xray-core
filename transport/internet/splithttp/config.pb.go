@@ -173,6 +173,19 @@ type Config struct {
 	ScStreamUpServerSecs *RangeConfig           `protobuf:"bytes,11,opt,name=scStreamUpServerSecs,proto3" json:"scStreamUpServerSecs,omitempty"`
 	Xmux                 *XmuxConfig            `protobuf:"bytes,12,opt,name=xmux,proto3" json:"xmux,omitempty"`
 	DownloadSettings     *internet.StreamConfig `protobuf:"bytes,13,opt,name=downloadSettings,proto3" json:"downloadSettings,omitempty"`
+	XPaddingObfsMode     bool                   `protobuf:"varint,14,opt,name=xPaddingObfsMode,proto3" json:"xPaddingObfsMode,omitempty"`
+	XPaddingKey          string                 `protobuf:"bytes,15,opt,name=xPaddingKey,proto3" json:"xPaddingKey,omitempty"`
+	XPaddingHeader       string                 `protobuf:"bytes,16,opt,name=xPaddingHeader,proto3" json:"xPaddingHeader,omitempty"`
+	XPaddingPlacement    string                 `protobuf:"bytes,17,opt,name=xPaddingPlacement,proto3" json:"xPaddingPlacement,omitempty"`
+	XPaddingMethod       string                 `protobuf:"bytes,18,opt,name=xPaddingMethod,proto3" json:"xPaddingMethod,omitempty"`
+	UplinkHTTPMethod     string                 `protobuf:"bytes,19,opt,name=uplinkHTTPMethod,proto3" json:"uplinkHTTPMethod,omitempty"`
+	SessionPlacement     string                 `protobuf:"bytes,20,opt,name=sessionPlacement,proto3" json:"sessionPlacement,omitempty"`
+	SessionKey           string                 `protobuf:"bytes,21,opt,name=sessionKey,proto3" json:"sessionKey,omitempty"`
+	SeqPlacement         string                 `protobuf:"bytes,22,opt,name=seqPlacement,proto3" json:"seqPlacement,omitempty"`
+	SeqKey               string                 `protobuf:"bytes,23,opt,name=seqKey,proto3" json:"seqKey,omitempty"`
+	UplinkDataPlacement  string                 `protobuf:"bytes,24,opt,name=uplinkDataPlacement,proto3" json:"uplinkDataPlacement,omitempty"`
+	UplinkDataKey        string                 `protobuf:"bytes,25,opt,name=uplinkDataKey,proto3" json:"uplinkDataKey,omitempty"`
+	UplinkChunkSize      uint32                 `protobuf:"varint,26,opt,name=uplinkChunkSize,proto3" json:"uplinkChunkSize,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -298,6 +311,97 @@ func (x *Config) GetDownloadSettings() *internet.StreamConfig {
 	return nil
 }
 
+func (x *Config) GetXPaddingObfsMode() bool {
+	if x != nil {
+		return x.XPaddingObfsMode
+	}
+	return false
+}
+
+func (x *Config) GetXPaddingKey() string {
+	if x != nil {
+		return x.XPaddingKey
+	}
+	return ""
+}
+
+func (x *Config) GetXPaddingHeader() string {
+	if x != nil {
+		return x.XPaddingHeader
+	}
+	return ""
+}
+
+func (x *Config) GetXPaddingPlacement() string {
+	if x != nil {
+		return x.XPaddingPlacement
+	}
+	return ""
+}
+
+func (x *Config) GetXPaddingMethod() string {
+	if x != nil {
+		return x.XPaddingMethod
+	}
+	return ""
+}
+
+func (x *Config) GetUplinkHTTPMethod() string {
+	if x != nil {
+		return x.UplinkHTTPMethod
+	}
+	return ""
+}
+
+func (x *Config) GetSessionPlacement() string {
+	if x != nil {
+		return x.SessionPlacement
+	}
+	return ""
+}
+
+func (x *Config) GetSessionKey() string {
+	if x != nil {
+		return x.SessionKey
+	}
+	return ""
+}
+
+func (x *Config) GetSeqPlacement() string {
+	if x != nil {
+		return x.SeqPlacement
+	}
+	return ""
+}
+
+func (x *Config) GetSeqKey() string {
+	if x != nil {
+		return x.SeqKey
+	}
+	return ""
+}
+
+func (x *Config) GetUplinkDataPlacement() string {
+	if x != nil {
+		return x.UplinkDataPlacement
+	}
+	return ""
+}
+
+func (x *Config) GetUplinkDataKey() string {
+	if x != nil {
+		return x.UplinkDataKey
+	}
+	return ""
+}
+
+func (x *Config) GetUplinkChunkSize() uint32 {
+	if x != nil {
+		return x.UplinkChunkSize
+	}
+	return 0
+}
+
 var File_transport_internet_splithttp_config_proto protoreflect.FileDescriptor
 
 const file_transport_internet_splithttp_config_proto_rawDesc = "" +
@@ -313,7 +417,8 @@ const file_transport_internet_splithttp_config_proto_rawDesc = "" +
 	"\x0ecMaxReuseTimes\x18\x03 \x01(\v2..xray.transport.internet.splithttp.RangeConfigR\x0ecMaxReuseTimes\x12Z\n" +
 	"\x10hMaxRequestTimes\x18\x04 \x01(\v2..xray.transport.internet.splithttp.RangeConfigR\x10hMaxRequestTimes\x12Z\n" +
 	"\x10hMaxReusableSecs\x18\x05 \x01(\v2..xray.transport.internet.splithttp.RangeConfigR\x10hMaxReusableSecs\x12*\n" +
-	"\x10hKeepAlivePeriod\x18\x06 \x01(\x03R\x10hKeepAlivePeriod\"\xdc\x06\n" +
+	"\x10hKeepAlivePeriod\x18\x06 \x01(\x03R\x10hKeepAlivePeriod\"\xde\n" +
+	"\n" +
 	"\x06Config\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x12\n" +
@@ -328,7 +433,22 @@ const file_transport_internet_splithttp_config_proto_rawDesc = "" +
 	" \x01(\x03R\x12scMaxBufferedPosts\x12b\n" +
 	"\x14scStreamUpServerSecs\x18\v \x01(\v2..xray.transport.internet.splithttp.RangeConfigR\x14scStreamUpServerSecs\x12A\n" +
 	"\x04xmux\x18\f \x01(\v2-.xray.transport.internet.splithttp.XmuxConfigR\x04xmux\x12Q\n" +
-	"\x10downloadSettings\x18\r \x01(\v2%.xray.transport.internet.StreamConfigR\x10downloadSettings\x1a:\n" +
+	"\x10downloadSettings\x18\r \x01(\v2%.xray.transport.internet.StreamConfigR\x10downloadSettings\x12*\n" +
+	"\x10xPaddingObfsMode\x18\x0e \x01(\bR\x10xPaddingObfsMode\x12 \n" +
+	"\vxPaddingKey\x18\x0f \x01(\tR\vxPaddingKey\x12&\n" +
+	"\x0exPaddingHeader\x18\x10 \x01(\tR\x0exPaddingHeader\x12,\n" +
+	"\x11xPaddingPlacement\x18\x11 \x01(\tR\x11xPaddingPlacement\x12&\n" +
+	"\x0exPaddingMethod\x18\x12 \x01(\tR\x0exPaddingMethod\x12*\n" +
+	"\x10uplinkHTTPMethod\x18\x13 \x01(\tR\x10uplinkHTTPMethod\x12*\n" +
+	"\x10sessionPlacement\x18\x14 \x01(\tR\x10sessionPlacement\x12\x1e\n" +
+	"\n" +
+	"sessionKey\x18\x15 \x01(\tR\n" +
+	"sessionKey\x12\"\n" +
+	"\fseqPlacement\x18\x16 \x01(\tR\fseqPlacement\x12\x16\n" +
+	"\x06seqKey\x18\x17 \x01(\tR\x06seqKey\x120\n" +
+	"\x13uplinkDataPlacement\x18\x18 \x01(\tR\x13uplinkDataPlacement\x12$\n" +
+	"\ruplinkDataKey\x18\x19 \x01(\tR\ruplinkDataKey\x12(\n" +
+	"\x0fuplinkChunkSize\x18\x1a \x01(\rR\x0fuplinkChunkSize\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x94\x01\n" +
