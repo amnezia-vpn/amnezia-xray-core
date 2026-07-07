@@ -14,10 +14,10 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/amnezia-vpn/amneziawg-go/tun"
 	"github.com/vishvananda/netlink"
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/transport/internet"
-	"golang.zx2c4.com/wireguard/tun"
 )
 
 var (

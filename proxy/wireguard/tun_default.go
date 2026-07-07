@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/netip"
 
-	"golang.zx2c4.com/wireguard/tun"
+	"github.com/amnezia-vpn/amneziawg-go/tun"
 )
 
 func createKernelTun([]netip.Addr, []netip.Addr, int) (tdev tun.Device, tnet *Net, err error) {
