@@ -26,4 +26,5 @@ message Config {
   int64 seconds_from = 5;
   int64 seconds_to = 6;
   string padding = 7;
+  string notifications = 8;
 }

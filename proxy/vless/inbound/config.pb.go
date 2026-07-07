@@ -115,6 +115,7 @@ type Config struct {
 	SecondsFrom   int64                  `protobuf:"varint,5,opt,name=seconds_from,json=secondsFrom,proto3" json:"seconds_from,omitempty"`
 	SecondsTo     int64                  `protobuf:"varint,6,opt,name=seconds_to,json=secondsTo,proto3" json:"seconds_to,omitempty"`
 	Padding       string                 `protobuf:"bytes,7,opt,name=padding,proto3" json:"padding,omitempty"`
+	Notifications string                 `protobuf:"bytes,8,opt,name=notifications,proto3" json:"notifications,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -198,6 +199,13 @@ func (x *Config) GetPadding() string {
 	return ""
 }
 
+func (x *Config) GetNotifications() string {
+	if x != nil {
+		return x.Notifications
+	}
+	return ""
+}
+
 var File_proxy_vless_inbound_config_proto protoreflect.FileDescriptor
 
 const file_proxy_vless_inbound_config_proto_rawDesc = "" +
@@ -209,7 +217,7 @@ const file_proxy_vless_inbound_config_proto_rawDesc = "" +
 	"\x04path\x18\x03 \x01(\tR\x04path\x12\x12\n" +
 	"\x04type\x18\x04 \x01(\tR\x04type\x12\x12\n" +
 	"\x04dest\x18\x05 \x01(\tR\x04dest\x12\x12\n" +
-	"\x04xver\x18\x06 \x01(\x04R\x04xver\"\x92\x02\n" +
+	"\x04xver\x18\x06 \x01(\x04R\x04xver\"\xb8\x02\n" +
 	"\x06Config\x120\n" +
 	"\x05users\x18\x01 \x03(\v2\x1a.xray.common.protocol.UserR\x05users\x12@\n" +
 	"\tfallbacks\x18\x02 \x03(\v2\".xray.proxy.vless.inbound.FallbackR\tfallbacks\x12\x1e\n" +
@@ -220,7 +228,8 @@ const file_proxy_vless_inbound_config_proto_rawDesc = "" +
 	"\fseconds_from\x18\x05 \x01(\x03R\vsecondsFrom\x12\x1d\n" +
 	"\n" +
 	"seconds_to\x18\x06 \x01(\x03R\tsecondsTo\x12\x18\n" +
-	"\apadding\x18\a \x01(\tR\apaddingBj\n" +
+	"\apadding\x18\a \x01(\tR\apadding\x12$\n" +
+	"\rnotifications\x18\b \x01(\tR\rnotificationsBj\n" +
 	"\x1ccom.xray.proxy.vless.inboundP\x01Z-github.com/xtls/xray-core/proxy/vless/inbound\xaa\x02\x18Xray.Proxy.Vless.Inboundb\x06proto3"
 
 var (
