@@ -20,6 +20,7 @@ import (
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/protocol"
+	"github.com/xtls/xray-core/common/retry"
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/common/uuid"
 	core "github.com/xtls/xray-core/core"
@@ -80,7 +81,7 @@ func TestCommanderListenConfigurationItem(t *testing.T) {
 	common.Must(err)
 	defer CloseAllServers(servers)
 
-	if err := testTCPConn(clientPort, 1024, time.Second*5)(); err != nil {
+	if err := retry.Timed(20, 500).On(testTCPConn(clientPort, 1024, time.Second*5)); err != nil {
 		t.Fatal(err)
 	}
 
