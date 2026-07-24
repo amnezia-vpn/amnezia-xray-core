@@ -66,3 +66,6 @@ ehthumbs.db
 # Other common ignores
 *.bak
 *.tmp
+
+# Local agent state
+.serena/

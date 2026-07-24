@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/amnezia-vpn/amneziawg-go/tun"
+	"github.com/amnezia-vpn/amneziawg-go/v3/tun"
 	"github.com/xtls/xray-core/transport/internet"
 
 	"golang.org/x/net/dns/dnsmessage"

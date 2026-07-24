@@ -3,7 +3,7 @@ module github.com/xtls/xray-core
 go 1.26
 
 require (
-	github.com/amnezia-vpn/amneziawg-go v0.2.18
+	github.com/amnezia-vpn/amneziawg-go/v3 v3.0.1
 	github.com/apernet/quic-go v0.59.1-0.20260425001925-6c6cc9bcb716
 	github.com/cloudflare/circl v1.6.4
 	github.com/ghodss/yaml v1.0.1-0.20220118164431-d8423dcdf344
