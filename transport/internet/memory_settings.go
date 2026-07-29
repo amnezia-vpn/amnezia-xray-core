@@ -21,6 +21,12 @@ type MemoryStreamConfig struct {
 
 // ToMemoryStreamConfig converts a StreamConfig to MemoryStreamConfig. It returns a default non-nil MemoryStreamConfig for nil input.
 func ToMemoryStreamConfig(s *StreamConfig) (*MemoryStreamConfig, error) {
+	if s != nil {
+		if err := ValidateStrictBinding(s.SocketSettings); err != nil {
+			return nil, err
+		}
+	}
+
 	ets, err := s.GetEffectiveTransportSettings()
 	if err != nil {
 		return nil, err

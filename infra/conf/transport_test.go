@@ -2,6 +2,8 @@ package conf_test
 
 import (
 	"encoding/json"
+	goerrors "errors"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -157,6 +159,77 @@ func TestSocketConfig(t *testing.T) {
 	if expectedOutput.ParseTFOValue() != -1 {
 		t.Fatalf("unexpected parsed TFO value, which should be -1")
 	}
+}
+
+func TestSocketConfigStrictBinding(t *testing.T) {
+	t.Run("requires binding option", func(t *testing.T) {
+		_, err := (&SocketConfig{StrictBinding: true}).Build()
+		var configErr *internet.StrictBindingConfigError
+		if !goerrors.As(err, &configErr) {
+			t.Fatalf("Build() error type = %T, want *internet.StrictBindingConfigError", err)
+		}
+		if configErr.Kind != internet.StrictBindingConfigMissingOption {
+			t.Fatalf("Build() error kind = %q, want %q", configErr.Kind, internet.StrictBindingConfigMissingOption)
+		}
+	})
+
+	t.Run("rejects dialer proxy", func(t *testing.T) {
+		_, err := (&SocketConfig{
+			Mark:          1,
+			StrictBinding: true,
+			DialerProxy:   "proxy",
+		}).Build()
+		var configErr *internet.StrictBindingConfigError
+		if !goerrors.As(err, &configErr) {
+			t.Fatalf("Build() error type = %T, want *internet.StrictBindingConfigError", err)
+		}
+		if configErr.Kind != internet.StrictBindingConfigBypass {
+			t.Fatalf("Build() error kind = %q, want %q", configErr.Kind, internet.StrictBindingConfigBypass)
+		}
+	})
+
+	t.Run("json mapping", func(t *testing.T) {
+		input := `{"strictBinding":true,"interface":"test-interface"}`
+		if runtime.GOOS == "linux" || runtime.GOOS == "android" || runtime.GOOS == "freebsd" {
+			input = `{"strictBinding":true,"mark":1}`
+		}
+
+		config := new(SocketConfig)
+		if err := json.Unmarshal([]byte(input), config); err != nil {
+			t.Fatal(err)
+		}
+		built, err := config.Build()
+		if runtime.GOOS != "linux" &&
+			runtime.GOOS != "android" &&
+			runtime.GOOS != "freebsd" &&
+			runtime.GOOS != "darwin" &&
+			runtime.GOOS != "ios" &&
+			runtime.GOOS != "windows" {
+			if err == nil {
+				t.Fatalf("Build() succeeded on unsupported platform %s", runtime.GOOS)
+			}
+			return
+		}
+		if err != nil {
+			t.Fatalf("Build() failed: %v", err)
+		}
+		if !built.StrictBinding {
+			t.Fatal("Build() did not preserve strictBinding")
+		}
+	})
+
+	t.Run("disabled remains backward compatible", func(t *testing.T) {
+		built, err := (&SocketConfig{
+			Mark:        1,
+			DialerProxy: "proxy",
+		}).Build()
+		if err != nil {
+			t.Fatalf("Build() failed: %v", err)
+		}
+		if built.StrictBinding {
+			t.Fatal("Build() enabled strict binding by default")
+		}
+	})
 }
 
 func TestHeaderCustomUDPBuild(t *testing.T) {

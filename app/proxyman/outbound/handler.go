@@ -89,6 +89,12 @@ func NewHandler(ctx context.Context, config *core.OutboundHandlerConfig) (outbou
 		}
 		switch s := senderSettings.(type) {
 		case *proxyman.SenderConfig:
+			if streamSettings := s.GetStreamSettings(); streamSettings != nil {
+				if socketSettings := streamSettings.GetSocketSettings(); socketSettings.GetStrictBinding() &&
+					s.GetProxySettings().HasTag() {
+					return nil, internet.NewStrictBindingBypassError("outbound proxySettings")
+				}
+			}
 			h.senderSettings = s
 			mss, err := internet.ToMemoryStreamConfig(s.StreamSettings)
 			if err != nil {

@@ -29,7 +29,7 @@ type task struct {
 var (
 	conns  chan *websocket.Conn
 	server *http.Server
-	mu     sync.Mutex
+	mu     sync.RWMutex
 )
 
 var upgrader = &websocket.Upgrader{
@@ -50,7 +50,7 @@ func Reload() {
 	if server != nil {
 		server.Close()
 	}
-	if HasBrowserDialer() {
+	if conns != nil {
 		for len(conns) > 0 {
 			select {
 			case c := <-conns:
@@ -87,6 +87,8 @@ func Reload() {
 }
 
 func HasBrowserDialer() bool {
+	mu.RLock()
+	defer mu.RUnlock()
 	return conns != nil
 }
 

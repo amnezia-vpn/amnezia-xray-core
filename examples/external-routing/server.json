@@ -1,0 +1,99 @@
+{
+  "log": {
+    "loglevel": "info"
+  },
+  "api": {
+    "tag": "api",
+    "listen": "/run/xray/control.sock,0600",
+    "maxReceiveMessageSize": 16777216,
+    "maxSendMessageSize": 16777216,
+    "services": [
+      "HandlerService",
+      "RoutingService"
+    ]
+  },
+  "inbounds": [
+    {
+      "tag": "vless-in",
+      "listen": "127.0.0.1",
+      "port": 10443,
+      "protocol": "vless",
+      "settings": {
+        "clients": [],
+        "notifications": "/run/xray/auth-notifications.sock",
+        "decryption": "none"
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ],
+        "routeOnly": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "deny",
+      "protocol": "blackhole",
+      "settings": {}
+    },
+    {
+      "tag": "default-system",
+      "protocol": "freedom",
+      "settings": {}
+    },
+    {
+      "tag": "ru-system",
+      "protocol": "freedom",
+      "settings": {},
+      "streamSettings": {
+        "sockopt": {
+          "mark": 100,
+          "strictBinding": true
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "ruleTag": "client-42-ru",
+        "inboundTag": [
+          "vless-in"
+        ],
+        "user": [
+          "client-42"
+        ],
+        "domain": [
+          "domain:gosuslugi.ru",
+          "domain:nalog.gov.ru"
+        ],
+        "outboundTag": "ru-system"
+      },
+      {
+        "type": "field",
+        "ruleTag": "client-42-default",
+        "inboundTag": [
+          "vless-in"
+        ],
+        "user": [
+          "client-42"
+        ],
+        "outboundTag": "default-system"
+      },
+      {
+        "type": "field",
+        "ruleTag": "unprovisioned-vless-deny",
+        "inboundTag": [
+          "vless-in"
+        ],
+        "outboundTag": "deny"
+      }
+    ]
+  }
+}

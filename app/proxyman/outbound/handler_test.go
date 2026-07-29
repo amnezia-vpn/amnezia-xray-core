@@ -2,6 +2,7 @@ package outbound_test
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -18,6 +19,7 @@ import (
 	core "github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/features/outbound"
 	"github.com/xtls/xray-core/proxy/freedom"
+	"github.com/xtls/xray-core/transport/internet"
 	"github.com/xtls/xray-core/transport/internet/stat"
 )
 
@@ -84,6 +86,46 @@ func TestOutboundWithStatCounter(t *testing.T) {
 	_, ok := conn.(*stat.CounterConnection)
 	if !ok {
 		t.Errorf("Expected conn to be CounterConnection")
+	}
+}
+
+func TestNewHandlerRejectsStrictBindingProxyChain(t *testing.T) {
+	v, err := core.New(&core.Config{
+		App: []*serial.TypedMessage{
+			serial.ToTypedMessage(&stats.Config{}),
+			serial.ToTypedMessage(&policy.Config{}),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.AddFeature(outbound.Manager(new(Manager)))
+	ctx := context.WithValue(context.Background(), xrayKey, v)
+
+	_, err = NewHandler(ctx, &core.OutboundHandlerConfig{
+		Tag: "strict",
+		SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
+			StreamSettings: &internet.StreamConfig{
+				SocketSettings: &internet.SocketConfig{
+					Mark:          100,
+					StrictBinding: true,
+				},
+			},
+			ProxySettings: &internet.ProxyConfig{Tag: "chain"},
+		}),
+		ProxySettings: serial.ToTypedMessage(&freedom.Config{
+			FinalRules: []*freedom.FinalRuleConfig{{Action: freedom.RuleAction_Allow}},
+		}),
+	})
+	if err == nil {
+		t.Fatal("strict binding with outbound proxySettings unexpectedly succeeded")
+	}
+	var configErr *internet.StrictBindingConfigError
+	if !stderrors.As(err, &configErr) {
+		t.Fatalf("error = %T %v, want StrictBindingConfigError", err, err)
+	}
+	if configErr.Kind != internet.StrictBindingConfigBypass {
+		t.Fatalf("strict binding error kind = %q, want %q", configErr.Kind, internet.StrictBindingConfigBypass)
 	}
 }
 

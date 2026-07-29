@@ -157,6 +157,12 @@ message SocketConfig {
   HappyEyeballsConfig happy_eyeballs = 22;
 
   repeated string trusted_x_forwarded_for = 23;
+
+  // StrictBinding makes outbound dialing fail when a configured mark or
+  // interface cannot be applied. It is intentionally limited to
+  // route-critical socket binding and defaults to best-effort for backward
+  // compatibility.
+  bool strict_binding = 24;
 }
 
 message HappyEyeballsConfig {

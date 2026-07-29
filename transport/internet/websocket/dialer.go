@@ -20,6 +20,9 @@ import (
 // Dial dials a WebSocket connection to the given destination.
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (stat.Connection, error) {
 	errors.LogInfo(ctx, "creating connection to ", dest)
+	if err := validateBrowserDialerStrictBinding(streamSettings, browser_dialer.HasBrowserDialer()); err != nil {
+		return nil, err
+	}
 	var conn net.Conn
 	if streamSettings.ProtocolSettings.(*Config).Ed > 0 {
 		ctx, cancel := context.WithCancel(ctx)
@@ -44,6 +47,11 @@ func init() {
 }
 
 func dialWebSocket(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig, ed []byte) (net.Conn, error) {
+	browserDialerEnabled := browser_dialer.HasBrowserDialer()
+	if err := validateBrowserDialerStrictBinding(streamSettings, browserDialerEnabled); err != nil {
+		return nil, err
+	}
+
 	wsSettings := streamSettings.ProtocolSettings.(*Config)
 
 	dialer := &websocket.Dialer{
@@ -111,7 +119,7 @@ func dialWebSocket(ctx context.Context, dest net.Destination, streamSettings *in
 		}
 	}
 
-	if browser_dialer.HasBrowserDialer() {
+	if browserDialerEnabled {
 		// For Browser Dialer's optimized IP and non-standard port
 		host := wsSettings.Host
 		if host == "" && tConfig.ServerName != "" {
@@ -163,6 +171,15 @@ func dialWebSocket(ctx context.Context, dest net.Destination, streamSettings *in
 	}
 
 	return NewConnection(conn, conn.RemoteAddr(), nil, wsSettings.HeartbeatPeriod), nil
+}
+
+func validateBrowserDialerStrictBinding(streamSettings *internet.MemoryStreamConfig, browserDialerEnabled bool) error {
+	if browserDialerEnabled &&
+		streamSettings.SocketSettings != nil &&
+		streamSettings.SocketSettings.StrictBinding {
+		return internet.NewStrictBindingBypassError("browser dialer")
+	}
+	return nil
 }
 
 type delayDialConn struct {

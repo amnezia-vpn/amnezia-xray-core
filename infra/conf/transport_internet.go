@@ -1079,6 +1079,7 @@ type SocketConfig struct {
 	TCPUserTimeout        int32                  `json:"tcpUserTimeout"`
 	V6only                bool                   `json:"v6only"`
 	Interface             string                 `json:"interface"`
+	StrictBinding         bool                   `json:"strictBinding"`
 	TcpMptcp              bool                   `json:"tcpMptcp"`
 	CustomSockopt         []*CustomSockoptConfig `json:"customSockopt"`
 	AddressPortStrategy   string                 `json:"addressPortStrategy"`
@@ -1183,7 +1184,7 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		happyEyeballs.MaxConcurrentTry = c.HappyEyeballsSettings.MaxConcurrentTry
 	}
 
-	return &internet.SocketConfig{
+	config := &internet.SocketConfig{
 		Mark:                 c.Mark,
 		Tfo:                  tfo,
 		Tproxy:               tproxy,
@@ -1199,12 +1200,17 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		TcpUserTimeout:       c.TCPUserTimeout,
 		V6Only:               c.V6only,
 		Interface:            c.Interface,
+		StrictBinding:        c.StrictBinding,
 		TcpMptcp:             c.TcpMptcp,
 		CustomSockopt:        customSockopts,
 		AddressPortStrategy:  addressPortStrategy,
 		HappyEyeballs:        happyEyeballs,
 		TrustedXForwardedFor: c.TrustedXForwardedFor,
-	}, nil
+	}
+	if err := internet.ValidateStrictBinding(config); err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 func PraseByteSlice(data json.RawMessage, typ string) ([]byte, error) {

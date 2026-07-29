@@ -224,6 +224,9 @@ func (c *OutboundDetourConfig) checkChainProxyConfig() error {
 	if c.StreamSetting == nil || c.ProxySettings == nil || c.StreamSetting.SocketSettings == nil {
 		return nil
 	}
+	if c.StreamSetting.SocketSettings.StrictBinding && c.ProxySettings.Tag != "" {
+		return internet.NewStrictBindingBypassError("outbound proxySettings")
+	}
 	if len(c.ProxySettings.Tag) > 0 && len(c.StreamSetting.SocketSettings.DialerProxy) > 0 {
 		return errors.New("proxySettings.tag is conflicted with sockopt.dialerProxy").AtWarning()
 	}

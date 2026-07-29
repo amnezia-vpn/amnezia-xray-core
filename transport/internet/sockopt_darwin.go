@@ -101,6 +101,22 @@ func OriginalDst(la, ra net.Addr) (net.IP, int, error) {
 }
 
 func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
+	if config.Interface != "" {
+		iface, err := net.InterfaceByName(config.Interface)
+		if err != nil {
+			return newSocketBindingError(SocketBindingOptionInterface, "interface lookup", network, address, err)
+		}
+		if network == "tcp6" || network == "udp6" {
+			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index); err != nil {
+				return newSocketBindingError(SocketBindingOptionInterface, "IPV6_BOUND_IF", network, address, err)
+			}
+		} else {
+			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index); err != nil {
+				return newSocketBindingError(SocketBindingOptionInterface, "IP_BOUND_IF", network, address, err)
+			}
+		}
+	}
+
 	if isTCPSocket(network) {
 		tfo := config.ParseTFOValue()
 		if tfo > 0 {
@@ -129,22 +145,6 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 		} else if config.TcpKeepAliveInterval < 0 || config.TcpKeepAliveIdle < 0 {
 			if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_KEEPALIVE, 0); err != nil {
 				return errors.New("failed to unset SO_KEEPALIVE", err)
-			}
-		}
-	}
-
-	if config.Interface != "" {
-		iface, err := net.InterfaceByName(config.Interface)
-		if err != nil {
-			return errors.New("failed to get interface ", config.Interface).Base(err)
-		}
-		if network == "tcp6" || network == "udp6" {
-			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index); err != nil {
-				return errors.New("failed to set IPV6_BOUND_IF").Base(err)
-			}
-		} else {
-			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index); err != nil {
-				return errors.New("failed to set IP_BOUND_IF").Base(err)
 			}
 		}
 	}

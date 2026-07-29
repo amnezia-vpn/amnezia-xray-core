@@ -16,13 +16,13 @@ import (
 func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
 	if config.Mark != 0 {
 		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, int(config.Mark)); err != nil {
-			return errors.New("failed to set SO_MARK").Base(err)
+			return newSocketBindingError(SocketBindingOptionMark, "SO_MARK", network, address, err)
 		}
 	}
 
 	if config.Interface != "" {
 		if err := syscall.BindToDevice(int(fd), config.Interface); err != nil {
-			return errors.New("failed to set Interface").Base(err)
+			return newSocketBindingError(SocketBindingOptionInterface, "SO_BINDTODEVICE", network, address, err)
 		}
 	}
 

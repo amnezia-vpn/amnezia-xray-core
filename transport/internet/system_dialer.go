@@ -2,6 +2,7 @@ package internet
 
 import (
 	"context"
+	goerrors "errors"
 	"sync"
 	"syscall"
 	"time"
@@ -46,8 +47,61 @@ func resolveSrcAddr(network net.Network, src net.Address) net.Addr {
 	}
 }
 
+func strictBindingSocketOptionError(config *SocketConfig, err error) error {
+	if config == nil || !config.StrictBinding || err == nil {
+		return nil
+	}
+	var bindingErr *SocketBindingError
+	if goerrors.As(err, &bindingErr) {
+		return err
+	}
+	return nil
+}
+
+func configuredSocketBindingOption(config *SocketConfig) SocketBindingOption {
+	if config.Mark != 0 {
+		return SocketBindingOptionMark
+	}
+	return SocketBindingOptionInterface
+}
+
+func applyOutboundSocketOptionsWithPolicy(
+	ctx context.Context,
+	network string,
+	address string,
+	rawConn syscall.RawConn,
+	config *SocketConfig,
+) error {
+	var socketOptionErr error
+	if err := rawConn.Control(func(fd uintptr) {
+		socketOptionErr = applyOutboundSocketOptions(network, address, fd, config)
+	}); err != nil {
+		if config != nil && config.StrictBinding {
+			return newSocketBindingError(
+				configuredSocketBindingOption(config),
+				"raw socket control",
+				network,
+				address,
+				err,
+			)
+		}
+		return err
+	}
+	if socketOptionErr == nil {
+		return nil
+	}
+	if err := strictBindingSocketOptionError(config, socketOptionErr); err != nil {
+		return err
+	}
+	errors.LogInfoInner(ctx, socketOptionErr, "failed to apply socket options")
+	return nil
+}
+
 func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest net.Destination, sockopt *SocketConfig) (net.Conn, error) {
 	errors.LogDebug(ctx, "dialing to "+dest.String())
+	if err := validateStrictBindingDialPath(sockopt, true); err != nil {
+		return nil, err
+	}
 
 	if dest.Network == net.Network_UDP {
 		srcAddr := resolveSrcAddr(net.Network_UDP, src)
@@ -68,13 +122,10 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 					errors.LogInfoInner(ctx, err, "failed to apply external controller")
 				}
 			}
-			return c.Control(func(fd uintptr) {
-				if sockopt != nil {
-					if err := applyOutboundSocketOptions(network, destAddr.String(), fd, sockopt); err != nil {
-						errors.LogInfo(ctx, err, "failed to apply socket options")
-					}
-				}
-			})
+			if sockopt == nil {
+				return nil
+			}
+			return applyOutboundSocketOptionsWithPolicy(ctx, network, destAddr.String(), c, sockopt)
 		}
 		packetConn, err := lc.ListenPacket(ctx, srcAddr.Network(), srcAddr.String())
 		if err != nil {
@@ -125,13 +176,10 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 					errors.LogInfoInner(ctx, err, "failed to apply external controller")
 				}
 			}
-			return c.Control(func(fd uintptr) {
-				if sockopt != nil {
-					if err := applyOutboundSocketOptions(network, address, fd, sockopt); err != nil {
-						errors.LogInfoInner(ctx, err, "failed to apply socket options")
-					}
-				}
-			})
+			if sockopt == nil {
+				return nil
+			}
+			return applyOutboundSocketOptionsWithPolicy(ctx, network, address, c, sockopt)
 		}
 	}
 
@@ -175,6 +223,9 @@ func WithAdapter(dialer SystemDialerAdapter) SystemDialer {
 }
 
 func (v *SimpleSystemDialer) Dial(ctx context.Context, src net.Address, dest net.Destination, sockopt *SocketConfig) (net.Conn, error) {
+	if err := validateStrictBindingDialPath(sockopt, false); err != nil {
+		return nil, err
+	}
 	return v.adapter.Dial(dest.Network.SystemString(), dest.NetAddr())
 }
 

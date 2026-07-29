@@ -224,6 +224,11 @@ func checkAddressPortStrategy(ctx context.Context, dest net.Destination, sockopt
 
 // DialSystem calls system dialer to create a network connection.
 func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig) (net.Conn, error) {
+	_, usesDefaultSystemDialer := effectiveSystemDialer.(*DefaultSystemDialer)
+	if err := validateStrictBindingDialPath(sockopt, usesDefaultSystemDialer); err != nil {
+		return nil, err
+	}
+
 	var src net.Address
 	outbounds := session.OutboundsFromContext(ctx)
 	var outboundName string

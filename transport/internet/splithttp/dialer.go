@@ -34,6 +34,7 @@ import (
 	"github.com/xtls/xray-core/transport/internet/tls"
 	"github.com/xtls/xray-core/transport/pipe"
 	"golang.org/x/net/http2"
+	"google.golang.org/protobuf/proto"
 )
 
 type dialerConf struct {
@@ -46,11 +47,14 @@ var (
 	globalDialerAccess sync.Mutex
 )
 
-func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (DialerClient, *XmuxClient) {
+func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (DialerClient, *XmuxClient, error) {
 	realityConfig := reality.ConfigFromStreamSettings(streamSettings)
 
 	if browser_dialer.HasBrowserDialer() && realityConfig == nil {
-		return &BrowserDialerClient{transportConfig: streamSettings.ProtocolSettings.(*Config)}, nil
+		if streamSettings.SocketSettings != nil && streamSettings.SocketSettings.StrictBinding {
+			return nil, nil, internet.NewStrictBindingBypassError("browser dialer")
+		}
+		return &BrowserDialerClient{transportConfig: streamSettings.ProtocolSettings.(*Config)}, nil, nil
 	}
 
 	globalDialerAccess.Lock()
@@ -78,7 +82,7 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 	}
 
 	xmuxClient := xmuxManager.GetXmuxClient(ctx)
-	return xmuxClient.XmuxConn.(DialerClient), xmuxClient
+	return xmuxClient.XmuxConn.(DialerClient), xmuxClient, nil
 }
 
 func decideHTTPVersion(tlsConfig *tls.Config, realityConfig *reality.Config) string {
@@ -357,7 +361,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	requestURL.Path = transportConfiguration.GetNormalizedPath()
 	requestURL.RawQuery = transportConfiguration.GetNormalizedQuery()
 
-	httpClient, xmuxClient := getHTTPClient(ctx, dest, streamSettings)
+	httpClient, xmuxClient, err := getHTTPClient(ctx, dest, streamSettings)
+	if err != nil {
+		return nil, err
+	}
 
 	mode := transportConfiguration.Mode
 	if mode == "" || mode == "auto" {
@@ -381,15 +388,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	httpClient2 := httpClient
 	xmuxClient2 := xmuxClient
 	if transportConfiguration.DownloadSettings != nil {
-		globalDialerAccess.Lock()
-		if streamSettings.DownloadSettings == nil {
-			streamSettings.DownloadSettings = common.Must2(internet.ToMemoryStreamConfig(transportConfiguration.DownloadSettings))
-			if streamSettings.SocketSettings != nil && streamSettings.SocketSettings.Penetrate {
-				streamSettings.DownloadSettings.SocketSettings = streamSettings.SocketSettings
-			}
+		memory2, err := getDownloadStreamSettings(streamSettings, transportConfiguration.DownloadSettings)
+		if err != nil {
+			return nil, err
 		}
-		globalDialerAccess.Unlock()
-		memory2 := streamSettings.DownloadSettings
 		dest2 := *memory2.Destination // just panic
 		tlsConfig2 := tls.ConfigFromStreamSettings(memory2)
 		realityConfig2 := reality.ConfigFromStreamSettings(memory2)
@@ -421,7 +423,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		}
 		requestURL2.Path = config2.GetNormalizedPath()
 		requestURL2.RawQuery = config2.GetNormalizedQuery()
-		httpClient2, xmuxClient2 = getHTTPClient(ctx, dest2, memory2)
+		httpClient2, xmuxClient2, err = getHTTPClient(ctx, dest2, memory2)
+		if err != nil {
+			return nil, err
+		}
 		errors.LogInfo(ctx, fmt.Sprintf("XHTTP is downloading from %s, mode %s, HTTP version %s, host %s", dest2, "stream-down", httpVersion2, requestURL2.Host))
 	}
 
@@ -449,7 +454,6 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		},
 	}
 
-	var err error
 	if mode == "stream-one" {
 		requestURL.Path = transportConfiguration.GetNormalizedPath()
 		if xmuxClient != nil {
@@ -541,7 +545,15 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 				if dynamicXmuxClient != nil && (dynamicXmuxClient.LeftRequests.Add(-1) <= 0 ||
 					(dynamicXmuxClient.UnreusableAt != time.Time{} && lastWrite.After(dynamicXmuxClient.UnreusableAt))) {
-					dynamicHTTPClient, dynamicXmuxClient = getHTTPClient(ctx, dest, streamSettings)
+					refreshedHTTPClient, refreshedXmuxClient, refreshErr := getHTTPClient(ctx, dest, streamSettings)
+					if refreshErr != nil {
+						errors.LogInfoInner(ctx, refreshErr, "refusing to refresh XHTTP client")
+						buf.ReleaseMulti(chunk)
+						buf.ReleaseMulti(remainder)
+						uploadPipeReader.Interrupt()
+						return
+					}
+					dynamicHTTPClient, dynamicXmuxClient = refreshedHTTPClient, refreshedXmuxClient
 				}
 
 				go func(hClient DialerClient) {
@@ -568,6 +580,58 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	}()
 
 	return stat.Connection(&conn), nil
+}
+
+func getDownloadStreamSettings(streamSettings *internet.MemoryStreamConfig, config *internet.StreamConfig) (*internet.MemoryStreamConfig, error) {
+	globalDialerAccess.Lock()
+	defer globalDialerAccess.Unlock()
+
+	if streamSettings.DownloadSettings == nil {
+		memory, err := internet.ToMemoryStreamConfig(config)
+		if err != nil {
+			return nil, err
+		}
+		streamSettings.DownloadSettings = memory
+	}
+
+	download := streamSettings.DownloadSettings
+	primarySocket := streamSettings.SocketSettings
+	if primarySocket == nil {
+		return download, nil
+	}
+	if primarySocket.Penetrate {
+		if download.SocketSettings != primarySocket {
+			download.SocketSettings = primarySocket
+		}
+		return download, nil
+	}
+	if !primarySocket.StrictBinding {
+		return download, nil
+	}
+
+	downloadSocket := download.SocketSettings
+	if downloadSocket != nil &&
+		downloadSocket.StrictBinding &&
+		downloadSocket.Mark == primarySocket.Mark &&
+		downloadSocket.Interface == primarySocket.Interface {
+		if err := internet.ValidateStrictBinding(downloadSocket); err != nil {
+			return nil, err
+		}
+		return download, nil
+	}
+
+	inheritedSocket := &internet.SocketConfig{}
+	if downloadSocket != nil {
+		inheritedSocket = proto.Clone(downloadSocket).(*internet.SocketConfig)
+	}
+	inheritedSocket.Mark = primarySocket.Mark
+	inheritedSocket.Interface = primarySocket.Interface
+	inheritedSocket.StrictBinding = true
+	if err := internet.ValidateStrictBinding(inheritedSocket); err != nil {
+		return nil, err
+	}
+	download.SocketSettings = inheritedSocket
+	return download, nil
 }
 
 // A wrapper around pipe that ensures the size limit is exactly honored.
