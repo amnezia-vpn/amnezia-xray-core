@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/xtls/xray-core/common/errors"
@@ -266,7 +265,7 @@ func removeStaleUnknownUserNotificationSocket(socketPath string) error {
 		_ = conn.Close()
 		return errors.New("notification UNIX socket is already in use: ", socketPath)
 	}
-	if !stderrors.Is(err, syscall.ECONNREFUSED) && !stderrors.Is(err, os.ErrNotExist) {
+	if !isNotificationSocketConnectionRefused(err) && !stderrors.Is(err, os.ErrNotExist) {
 		return errors.New("failed to verify existing notification UNIX socket is stale").Base(err)
 	}
 	if err := os.Remove(socketPath); err != nil && !stderrors.Is(err, os.ErrNotExist) {
