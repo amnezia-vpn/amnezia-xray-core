@@ -126,7 +126,7 @@ func OriginalDst(la, ra net.Addr) (net.IP, int, error) {
 
 func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
 	if config.Mark != 0 {
-		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_USER_COOKIE, int(config.Mark)); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_USER_COOKIE, socketMarkValue(config.Mark)); err != nil {
 			return newSocketBindingError(SocketBindingOptionMark, "SO_USER_COOKIE", network, address, err)
 		}
 	}
@@ -179,7 +179,7 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 
 func applyInboundSocketOptions(network string, fd uintptr, config *SocketConfig) error {
 	if config.Mark != 0 {
-		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_USER_COOKIE, int(config.Mark)); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_USER_COOKIE, socketMarkValue(config.Mark)); err != nil {
 			return errors.New("failed to set SO_USER_COOKIE").Base(err)
 		}
 	}

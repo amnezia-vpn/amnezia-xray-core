@@ -3,6 +3,7 @@ package conf_test
 import (
 	"encoding/json"
 	goerrors "errors"
+	"math"
 	"runtime"
 	"strings"
 	"testing"
@@ -159,6 +160,27 @@ func TestSocketConfig(t *testing.T) {
 	if expectedOutput.ParseTFOValue() != -1 {
 		t.Fatalf("unexpected parsed TFO value, which should be -1")
 	}
+
+	t.Run("full unsigned mark", func(t *testing.T) {
+		config := new(SocketConfig)
+		if err := json.Unmarshal([]byte(`{"mark":4294967295}`), config); err != nil {
+			t.Fatal(err)
+		}
+		built, err := config.Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if built.Mark != uint32(math.MaxUint32) {
+			t.Fatalf("mark = %d, want %d", built.Mark, uint32(math.MaxUint32))
+		}
+	})
+
+	t.Run("negative mark rejected", func(t *testing.T) {
+		config := new(SocketConfig)
+		if err := json.Unmarshal([]byte(`{"mark":-1}`), config); err == nil {
+			t.Fatal("negative mark unexpectedly accepted")
+		}
+	})
 }
 
 func TestSocketConfigStrictBinding(t *testing.T) {

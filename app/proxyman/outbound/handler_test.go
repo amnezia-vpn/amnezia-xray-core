@@ -21,6 +21,7 @@ import (
 	"github.com/xtls/xray-core/proxy/freedom"
 	"github.com/xtls/xray-core/transport/internet"
 	"github.com/xtls/xray-core/transport/internet/stat"
+	_ "github.com/xtls/xray-core/transport/internet/tcp"
 )
 
 func TestInterfaces(t *testing.T) {
@@ -126,6 +127,45 @@ func TestNewHandlerRejectsStrictBindingProxyChain(t *testing.T) {
 	}
 	if configErr.Kind != internet.StrictBindingConfigBypass {
 		t.Fatalf("strict binding error kind = %q, want %q", configErr.Kind, internet.StrictBindingConfigBypass)
+	}
+}
+
+func TestHandlerDialRejectsUserMarkProxyChain(t *testing.T) {
+	v, err := core.New(&core.Config{
+		App: []*serial.TypedMessage{
+			serial.ToTypedMessage(&stats.Config{}),
+			serial.ToTypedMessage(&policy.Config{}),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v.AddFeature(outbound.Manager(new(Manager)))
+	ctx := context.WithValue(context.Background(), xrayKey, v)
+
+	h, err := NewHandler(ctx, &core.OutboundHandlerConfig{
+		Tag: "dynamic-mark-proxy-chain",
+		SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
+			ProxySettings: &internet.ProxyConfig{Tag: "chain"},
+		}),
+		ProxySettings: serial.ToTypedMessage(&freedom.Config{
+			FinalRules: []*freedom.FinalRuleConfig{{Action: freedom.RuleAction_Allow}},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("NewHandler() error = %v", err)
+	}
+
+	_, err = h.(*Handler).Dial(
+		session.ContextWithOutboundSocketMark(ctx, 1_000_000_000),
+		net.TCPDestination(net.DomainAddress("example.com"), 443),
+	)
+	var configErr *internet.StrictBindingConfigError
+	if !stderrors.As(err, &configErr) || configErr.Kind != internet.StrictBindingConfigBypass {
+		t.Fatalf("Dial() error = %T %v, want strict-binding bypass", err, err)
+	}
+	if configErr.Bypass != "outbound proxySettings" {
+		t.Fatalf("Dial() bypass = %q, want outbound proxySettings", configErr.Bypass)
 	}
 }
 

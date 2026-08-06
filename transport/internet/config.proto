@@ -103,7 +103,7 @@ message CustomSockopt {
 // SocketConfig is options to be applied on network sockets.
 message SocketConfig {
   // Mark of the connection. If non-zero, the value will be set to SO_MARK.
-  int32 mark = 1;
+  uint32 mark = 1;
 
   // TFO is the state of TFO settings.
   int32 tfo = 2;

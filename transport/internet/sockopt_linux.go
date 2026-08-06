@@ -15,7 +15,7 @@ import (
 // note that unlike other part of Xray, this function needs network with speified network stack(tcp4/tcp6/udp4/udp6)
 func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
 	if config.Mark != 0 {
-		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, int(config.Mark)); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, socketMarkValue(config.Mark)); err != nil {
 			return newSocketBindingError(SocketBindingOptionMark, "SO_MARK", network, address, err)
 		}
 	}
@@ -114,7 +114,7 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 // note that unlike other part of Xray, this function needs network with speified network stack(tcp4/tcp6/udp4/udp6)
 func applyInboundSocketOptions(network string, fd uintptr, config *SocketConfig) error {
 	if config.Mark != 0 {
-		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, int(config.Mark)); err != nil {
+		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, socketMarkValue(config.Mark)); err != nil {
 			return errors.New("failed to set SO_MARK").Base(err)
 		}
 	}

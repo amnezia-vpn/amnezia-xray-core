@@ -1,6 +1,9 @@
 package conf_test
 
 import (
+	"encoding/json"
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/xtls/xray-core/common/net"
@@ -83,6 +86,45 @@ func TestVLessOutbound(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestVLessInboundFwmark(t *testing.T) {
+	tests := []struct {
+		name         string
+		fwmarkField  string
+		want         uint32
+		wantBuildErr bool
+	}{
+		{name: "omitted"},
+		{name: "disabled", fwmarkField: `,"fwmark":0`},
+		{name: "negative", fwmarkField: `,"fwmark":-1`, wantBuildErr: true},
+		{name: "below range", fwmarkField: `,"fwmark":999999999`, wantBuildErr: true},
+		{name: "minimum", fwmarkField: `,"fwmark":1000000000`, want: 1_000_000_000},
+		{name: "maximum", fwmarkField: `,"fwmark":4294967295`, want: math.MaxUint32},
+		{name: "above uint32", fwmarkField: `,"fwmark":4294967296`, wantBuildErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := fmt.Sprintf(`{"clients":[{"id":"27848739-7e62-4138-9fd3-098a63964b6b"%s}],"decryption":"none"}`, test.fwmarkField)
+			config := new(VLessInboundConfig)
+			if err := json.Unmarshal([]byte(input), config); err != nil {
+				t.Fatal(err)
+			}
+			built, err := config.Build()
+			if test.wantBuildErr {
+				if err == nil {
+					t.Fatal("Build() unexpectedly succeeded")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := built.(*inbound.Config).Users[0].Fwmark; got != test.want {
+				t.Fatalf("fwmark = %d, want %d", got, test.want)
+			}
+		})
+	}
 }
 
 func TestVLessInbound(t *testing.T) {

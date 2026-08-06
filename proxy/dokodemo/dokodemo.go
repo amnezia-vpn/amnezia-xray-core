@@ -179,7 +179,7 @@ func (d *DokodemoDoor) Process(ctx context.Context, network net.Network, conn st
 			}
 			var mark int
 			if d.sockopt != nil {
-				mark = int(d.sockopt.Mark)
+				mark = int(int32(d.sockopt.Mark))
 			}
 			pConn, err := FakeUDP(addr, mark)
 			if err != nil {

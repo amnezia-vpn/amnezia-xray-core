@@ -6,6 +6,7 @@ import (
 	goerrors "errors"
 	"io"
 	"math/big"
+	"runtime"
 
 	"github.com/xtls/xray-core/common/dice"
 
@@ -187,6 +188,11 @@ func (h *Handler) Tag() string {
 func (h *Handler) Dispatch(ctx context.Context, link *transport.Link) {
 	outbounds := session.OutboundsFromContext(ctx)
 	ob := outbounds[len(outbounds)-1]
+	var requiredOutboundSocketMark uint32
+	if preparer, ok := h.proxy.(proxy.OutboundContextPreparer); ok {
+		ctx = preparer.PrepareOutboundContext(ctx)
+		requiredOutboundSocketMark = session.OutboundSocketMarkFromContext(ctx)
+	}
 	content := session.ContentFromContext(ctx)
 	if h.senderSettings != nil && h.senderSettings.TargetStrategy.HasStrategy() && ob.Target.Address.Family().IsDomain() && (content == nil || !content.SkipDNSResolve) {
 		strategy := h.senderSettings.TargetStrategy
@@ -237,10 +243,18 @@ func (h *Handler) Dispatch(ctx context.Context, link *transport.Link) {
 			if !h.xudp.Enabled {
 				goto out
 			}
+			if requiredOutboundSocketMark != 0 {
+				test(internet.NewStrictBindingBypassError("outbound XUDP"))
+				return
+			}
 			test(h.xudp.Dispatch(ctx, link))
 			return
 		}
 		if h.mux.Enabled {
+			if requiredOutboundSocketMark != 0 {
+				test(internet.NewStrictBindingBypassError("outbound mux"))
+				return
+			}
 			test(h.mux.Dispatch(ctx, link))
 			return
 		}
@@ -276,6 +290,19 @@ func (h *Handler) DestIpAddress() net.IP {
 
 // Dial implements internet.Dialer.
 func (h *Handler) Dial(ctx context.Context, dest net.Destination) (stat.Connection, error) {
+	socketMark := session.OutboundSocketMarkFromContext(ctx)
+	if socketMark != 0 && h.senderSettings != nil && h.senderSettings.ProxySettings.HasTag() {
+		return nil, internet.NewStrictBindingBypassError("outbound proxySettings")
+	}
+	if socketMark != 0 {
+		if err := validateUserSocketMarkTransport(h.streamSettings, socketMark); err != nil {
+			return nil, err
+		}
+		if err := validateUserSocketMarkPlatform(runtime.GOOS); err != nil {
+			return nil, err
+		}
+	}
+
 	if h.senderSettings != nil {
 
 		if h.senderSettings.ProxySettings.HasTag() {
@@ -315,7 +342,19 @@ func (h *Handler) Dial(ctx context.Context, dest net.Destination) (stat.Connecti
 		}
 	}
 
-	conn, err := internet.Dial(ctx, dest, h.streamSettings)
+	streamSettings := h.streamSettings
+	if socketMark != 0 {
+		var err error
+		streamSettings, err = streamSettingsWithOutboundSocketMark(streamSettings, socketMark)
+		if err != nil {
+			return nil, errors.New("failed to prepare user socket mark").Base(err)
+		}
+		if err := internet.ValidateStrictBinding(streamSettings.SocketSettings); err != nil {
+			return nil, err
+		}
+	}
+
+	conn, err := internet.Dial(ctx, dest, streamSettings)
 	conn = h.getStatCouterConnection(conn)
 	outbounds := session.OutboundsFromContext(ctx)
 	if outbounds != nil {

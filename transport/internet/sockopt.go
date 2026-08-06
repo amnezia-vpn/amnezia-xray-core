@@ -1,5 +1,9 @@
 package internet
 
+func socketMarkValue(mark uint32) int {
+	return int(int32(mark))
+}
+
 func isTCPSocket(network string) bool {
 	switch network {
 	case "tcp", "tcp4", "tcp6":

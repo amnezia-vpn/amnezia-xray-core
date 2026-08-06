@@ -722,7 +722,7 @@ func (x *CustomSockopt) GetType() string {
 type SocketConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Mark of the connection. If non-zero, the value will be set to SO_MARK.
-	Mark int32 `protobuf:"varint,1,opt,name=mark,proto3" json:"mark,omitempty"`
+	Mark uint32 `protobuf:"varint,1,opt,name=mark,proto3" json:"mark,omitempty"`
 	// TFO is the state of TFO settings.
 	Tfo int32 `protobuf:"varint,2,opt,name=tfo,proto3" json:"tfo,omitempty"`
 	// TProxy is for enabling TProxy socket option.
@@ -786,7 +786,7 @@ func (*SocketConfig) Descriptor() ([]byte, []int) {
 	return file_transport_internet_config_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *SocketConfig) GetMark() int32 {
+func (x *SocketConfig) GetMark() uint32 {
 	if x != nil {
 		return x.Mark
 	}
@@ -1064,7 +1064,7 @@ const file_transport_internet_config_proto_rawDesc = "" +
 	"\x05value\x18\x05 \x01(\tR\x05value\x12\x12\n" +
 	"\x04type\x18\x06 \x01(\tR\x04type\"\xf0\b\n" +
 	"\fSocketConfig\x12\x12\n" +
-	"\x04mark\x18\x01 \x01(\x05R\x04mark\x12\x10\n" +
+	"\x04mark\x18\x01 \x01(\rR\x04mark\x12\x10\n" +
 	"\x03tfo\x18\x02 \x01(\x05R\x03tfo\x12H\n" +
 	"\x06tproxy\x18\x03 \x01(\x0e20.xray.transport.internet.SocketConfig.TProxyModeR\x06tproxy\x12A\n" +
 	"\x1dreceive_original_dest_address\x18\x04 \x01(\bR\x1areceiveOriginalDestAddress\x122\n" +
