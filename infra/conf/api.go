@@ -14,14 +14,19 @@ import (
 )
 
 type APIConfig struct {
-	Tag      string   `json:"tag"`
-	Listen   string   `json:"listen"`
-	Services []string `json:"services"`
+	Tag                   string   `json:"tag"`
+	Listen                string   `json:"listen"`
+	Services              []string `json:"services"`
+	MaxReceiveMessageSize int32    `json:"maxReceiveMessageSize"`
+	MaxSendMessageSize    int32    `json:"maxSendMessageSize"`
 }
 
 func (c *APIConfig) Build() (*commander.Config, error) {
 	if c.Tag == "" {
 		return nil, errors.New("API tag can't be empty.")
+	}
+	if c.MaxReceiveMessageSize < 0 || c.MaxSendMessageSize < 0 {
+		return nil, errors.New("API gRPC message sizes must not be negative.")
 	}
 
 	services := make([]*serial.TypedMessage, 0, 16)
@@ -43,8 +48,10 @@ func (c *APIConfig) Build() (*commander.Config, error) {
 	}
 
 	return &commander.Config{
-		Tag:     c.Tag,
-		Listen:  c.Listen,
-		Service: services,
+		Tag:                   c.Tag,
+		Listen:                c.Listen,
+		Service:               services,
+		MaxReceiveMessageSize: c.MaxReceiveMessageSize,
+		MaxSendMessageSize:    c.MaxSendMessageSize,
 	}, nil
 }

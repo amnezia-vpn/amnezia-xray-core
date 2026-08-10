@@ -136,7 +136,12 @@ func (b *Balancer) SelectOutbounds() ([]string, error) {
 
 // GetPrincipleTarget implements routing.BalancerPrincipleTarget
 func (r *Router) GetPrincipleTarget(tag string) ([]string, error) {
-	if b, ok := r.balancers[tag]; ok {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.state == nil {
+		return nil, ErrRuleSetUnavailable
+	}
+	if b, ok := r.state.balancers[tag]; ok {
 		if s, ok := b.strategy.(BalancingPrincipleTarget); ok {
 			candidates, err := b.SelectOutbounds()
 			if err != nil {
@@ -151,7 +156,12 @@ func (r *Router) GetPrincipleTarget(tag string) ([]string, error) {
 
 // SetOverrideTarget implements routing.BalancerOverrider
 func (r *Router) SetOverrideTarget(tag, target string) error {
-	if b, ok := r.balancers[tag]; ok {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.state == nil {
+		return ErrRuleSetUnavailable
+	}
+	if b, ok := r.state.balancers[tag]; ok {
 		b.override.Put(target)
 		return nil
 	}
@@ -160,7 +170,12 @@ func (r *Router) SetOverrideTarget(tag, target string) error {
 
 // GetOverrideTarget implements routing.BalancerOverrider
 func (r *Router) GetOverrideTarget(tag string) (string, error) {
-	if b, ok := r.balancers[tag]; ok {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.state == nil {
+		return "", ErrRuleSetUnavailable
+	}
+	if b, ok := r.state.balancers[tag]; ok {
 		return b.override.Get(), nil
 	}
 	return "", errors.New("cannot find tag")

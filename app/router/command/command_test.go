@@ -14,10 +14,13 @@ import (
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/geodata"
 	"github.com/xtls/xray-core/common/net"
+	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/testing/mocks"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -431,4 +434,163 @@ func TestServiceTestRoute(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func TestServiceRuleSetAPI(t *testing.T) {
+	r := new(router.Router)
+	mockCtl := gomock.NewController(t)
+	defer mockCtl.Finish()
+	if err := r.Init(context.Background(), commandRuleSetConfig("initial"), mocks.NewDNSClient(mockCtl), nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	server := NewRoutingServer(r, nil)
+	current, err := server.GetRuleSet(context.Background(), &GetRuleSetRequest{IncludeConfig: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Version == nil || current.Version.InstanceId == "" {
+		t.Fatalf("invalid initial version: %+v", current.Version)
+	}
+	if current.Version.Generation != 1 {
+		t.Fatalf("initial generation = %d, want 1", current.Version.Generation)
+	}
+	if current.Config == nil {
+		t.Fatal("initial config is nil")
+	}
+	versionOnly, err := server.GetRuleSet(context.Background(), &GetRuleSetRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if versionOnly.Config != nil {
+		t.Fatal("version-only response unexpectedly included config")
+	}
+
+	replaced, err := server.ReplaceRuleSet(context.Background(), &ReplaceRuleSetRequest{
+		ExpectedVersion: current.Version,
+		Config:          serial.ToTypedMessage(commandRuleSetConfig("replacement")),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaced.Version.Generation != current.Version.Generation+1 {
+		t.Fatalf("replacement generation = %d, want %d", replaced.Version.Generation, current.Version.Generation+1)
+	}
+
+	tests := []struct {
+		name string
+		req  *ReplaceRuleSetRequest
+		code codes.Code
+	}{
+		{
+			name: "missing expected version",
+			req: &ReplaceRuleSetRequest{
+				Config: serial.ToTypedMessage(commandRuleSetConfig("unused")),
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			name: "missing instance ID",
+			req: &ReplaceRuleSetRequest{
+				ExpectedVersion: &RuleSetVersion{Generation: replaced.Version.Generation},
+				Config:          serial.ToTypedMessage(commandRuleSetConfig("unused")),
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			name: "missing generation",
+			req: &ReplaceRuleSetRequest{
+				ExpectedVersion: &RuleSetVersion{InstanceId: replaced.Version.InstanceId},
+				Config:          serial.ToTypedMessage(commandRuleSetConfig("unused")),
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			name: "missing config",
+			req: &ReplaceRuleSetRequest{
+				ExpectedVersion: replaced.Version,
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			name: "stale generation",
+			req: &ReplaceRuleSetRequest{
+				ExpectedVersion: current.Version,
+				Config:          serial.ToTypedMessage(commandRuleSetConfig("unused")),
+			},
+			code: codes.Aborted,
+		},
+		{
+			name: "wrong instance",
+			req: &ReplaceRuleSetRequest{
+				ExpectedVersion: &RuleSetVersion{
+					InstanceId: "other-instance",
+					Generation: replaced.Version.Generation,
+				},
+				Config: serial.ToTypedMessage(commandRuleSetConfig("unused")),
+			},
+			code: codes.FailedPrecondition,
+		},
+		{
+			name: "wrong config type",
+			req: &ReplaceRuleSetRequest{
+				ExpectedVersion: replaced.Version,
+				Config:          serial.ToTypedMessage(&net.PortList{}),
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			name: "invalid config",
+			req: &ReplaceRuleSetRequest{
+				ExpectedVersion: replaced.Version,
+				Config: serial.ToTypedMessage(&router.Config{Rule: []*router.RoutingRule{{
+					TargetTag: &router.RoutingRule_Tag{Tag: "invalid"},
+				}}}),
+			},
+			code: codes.InvalidArgument,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := server.ReplaceRuleSet(context.Background(), test.req)
+			if got := status.Code(err); got != test.code {
+				t.Fatalf("status code = %s, want %s (error: %v)", got, test.code, err)
+			}
+		})
+	}
+
+	afterFailures, err := server.GetRuleSet(context.Background(), &GetRuleSetRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(afterFailures.Version, replaced.Version, cmpopts.IgnoreUnexported(RuleSetVersion{})); diff != "" {
+		t.Fatalf("version changed after failed replacements (-got +want):\n%s", diff)
+	}
+}
+
+func TestServiceRuleSetAPIUnsupported(t *testing.T) {
+	server := NewRoutingServer(routing.DefaultRouter{}, nil)
+	if _, err := server.GetRuleSet(context.Background(), &GetRuleSetRequest{}); status.Code(err) != codes.Unimplemented {
+		t.Fatalf("GetRuleSet status = %s, want Unimplemented", status.Code(err))
+	}
+	if _, err := server.ReplaceRuleSet(context.Background(), &ReplaceRuleSetRequest{}); status.Code(err) != codes.Unimplemented {
+		t.Fatalf("ReplaceRuleSet status = %s, want Unimplemented", status.Code(err))
+	}
+}
+
+func TestServiceRuleSetAPIUnavailable(t *testing.T) {
+	r := new(router.Router)
+	server := NewRoutingServer(r, nil)
+	if _, err := server.GetRuleSet(context.Background(), &GetRuleSetRequest{}); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("GetRuleSet status = %s, want FailedPrecondition", status.Code(err))
+	}
+}
+
+func commandRuleSetConfig(outboundTag string) *router.Config {
+	return &router.Config{Rule: []*router.RoutingRule{{
+		TargetTag: &router.RoutingRule_Tag{Tag: outboundTag},
+		RuleTag:   outboundTag + "-rule",
+		Networks:  []net.Network{net.Network_TCP},
+	}}}
 }

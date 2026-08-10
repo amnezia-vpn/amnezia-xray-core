@@ -23,13 +23,23 @@ type Commander struct {
 	ohm      outbound.Manager
 	tag      string
 	listen   string
+	maxRecv  int
+	maxSend  int
 }
 
 // NewCommander creates a new Commander based on the given config.
 func NewCommander(ctx context.Context, config *Config) (*Commander, error) {
+	if config.MaxReceiveMessageSize < 0 {
+		return nil, errors.New("Commander max receive message size must not be negative")
+	}
+	if config.MaxSendMessageSize < 0 {
+		return nil, errors.New("Commander max send message size must not be negative")
+	}
 	c := &Commander{
-		tag:    config.Tag,
-		listen: config.Listen,
+		tag:     config.Tag,
+		listen:  config.Listen,
+		maxRecv: int(config.MaxReceiveMessageSize),
+		maxSend: int(config.MaxSendMessageSize),
 	}
 
 	common.Must(core.RequireFeatures(ctx, func(om outbound.Manager) {
@@ -63,14 +73,22 @@ func (c *Commander) Type() interface{} {
 // Start implements common.Runnable.
 func (c *Commander) Start() error {
 	c.Lock()
-	c.server = grpc.NewServer()
+	var serverOptions []grpc.ServerOption
+	if c.maxRecv > 0 {
+		serverOptions = append(serverOptions, grpc.MaxRecvMsgSize(c.maxRecv))
+	}
+	if c.maxSend > 0 {
+		serverOptions = append(serverOptions, grpc.MaxSendMsgSize(c.maxSend))
+	}
+	server := grpc.NewServer(serverOptions...)
+	c.server = server
 	for _, service := range c.services {
-		service.Register(c.server)
+		service.Register(server)
 	}
 	c.Unlock()
 
 	listen := func(listener net.Listener) {
-		if err := c.server.Serve(listener); err != nil {
+		if err := server.Serve(listener); err != nil {
 			errors.LogErrorInner(context.Background(), err, "failed to start grpc server")
 		}
 	}
