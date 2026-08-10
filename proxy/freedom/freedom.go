@@ -267,6 +267,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	ob.Name = "freedom"
 	ob.CanSpliceCopy = 1
 	inbound := session.InboundFromContext(ctx)
+	ctx = h.PrepareOutboundContext(ctx)
 	defaultRule := getDefaultFinalRule(inbound)
 
 	destination := ob.Target
