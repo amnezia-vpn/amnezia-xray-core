@@ -89,6 +89,7 @@ type Handler struct {
 	defaultDispatcher      routing.Dispatcher
 	ctx                    context.Context
 	fallbacks              map[string]map[string]map[string]*Fallback // or nil
+	connectionTracker      *connectionTracker
 	clientConnections      map[net.Conn]struct{}
 	notifiedInvalidIDs     map[string]time.Time
 	clientMutex            sync.Mutex
@@ -109,6 +110,7 @@ func New(ctx context.Context, config *Config, dc dns.Client, validator vless.Val
 		observer:               v.GetFeature(extension.ObservatoryType()),
 		defaultDispatcher:      v.GetFeature(routing.DispatcherType()).(routing.Dispatcher),
 		ctx:                    ctx,
+		connectionTracker:      newConnectionTracker(),
 		clientConnections:      make(map[net.Conn]struct{}),
 		notifiedInvalidIDs:     make(map[string]time.Time),
 	}
@@ -259,6 +261,10 @@ func (h *Handler) RemoveReverse(u *protocol.MemoryUser) {
 
 // Close implements common.Closable.Close().
 func (h *Handler) Close() error {
+	var closeErrs []error
+	if h.connectionTracker != nil {
+		closeErrs = append(closeErrs, h.connectionTracker.close()...)
+	}
 	if h.decryption != nil {
 		h.decryption.Close()
 	}
@@ -266,7 +272,6 @@ func (h *Handler) Close() error {
 		h.RemoveReverse(u)
 	}
 	h.clientMutex.Lock()
-	var closeErrs []error
 	for clientConn := range h.clientConnections {
 		closeErrs = append(closeErrs, clientConn.Close())
 	}
@@ -640,6 +645,23 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
 		}
 	default:
 		return errors.New("unknown request flow " + requestAddons.Flow).AtWarning()
+	}
+
+	rawConnection, _, _ := proxy.UnwrapRawConn(connection)
+	tcpConnection, ok := rawConnection.(*net.TCPConn)
+	if ok {
+		releaseConnection, resetErrs, err := h.registerAuthenticatedConnection(
+			account,
+			inbound.Source.Address,
+			tcpConnection,
+		)
+		if err != nil {
+			return errors.New("failed to track vless connection").Base(err).AtWarning()
+		}
+		defer releaseConnection()
+		for _, resetErr := range resetErrs {
+			errors.LogWarningInner(ctx, resetErr, "failed to reset previous vless connection")
+		}
 	}
 
 	if request.Command != protocol.RequestCommandMux {
