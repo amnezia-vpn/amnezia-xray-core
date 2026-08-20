@@ -59,6 +59,9 @@ func (c *VLessInboundConfig) Build() (proto.Message, error) {
 		if err := json.Unmarshal(rawUser, user); err != nil {
 			return errors.New(`VLESS users: invalid user`).Base(err)
 		}
+		if err := vless.ValidateUserFwmark(user.Fwmark); err != nil {
+			return errors.New("VLESS users: invalid fwmark").Base(err)
+		}
 		account := new(vless.Account)
 		if err := json.Unmarshal(rawUser, account); err != nil {
 			return errors.New(`VLESS users: invalid user`).Base(err)

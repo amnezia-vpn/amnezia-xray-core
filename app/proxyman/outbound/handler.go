@@ -6,6 +6,7 @@ import (
 	goerrors "errors"
 	"io"
 	"math/big"
+	"runtime"
 
 	"github.com/xtls/xray-core/common/dice"
 
@@ -181,6 +182,11 @@ func (h *Handler) Tag() string {
 func (h *Handler) Dispatch(ctx context.Context, link *transport.Link) {
 	outbounds := session.OutboundsFromContext(ctx)
 	ob := outbounds[len(outbounds)-1]
+	var outboundSocketMark uint32
+	if preparer, ok := h.proxy.(proxy.OutboundContextPreparer); ok {
+		ctx = preparer.PrepareOutboundContext(ctx)
+		outboundSocketMark = session.OutboundSocketMarkFromContext(ctx)
+	}
 	content := session.ContentFromContext(ctx)
 	if h.senderSettings != nil && h.senderSettings.TargetStrategy.HasStrategy() && ob.Target.Address.Family().IsDomain() && (content == nil || !content.SkipDNSResolve) {
 		strategy := h.senderSettings.TargetStrategy
@@ -208,7 +214,7 @@ func (h *Handler) Dispatch(ctx context.Context, link *transport.Link) {
 		link.Reader = &buf.EndpointOverrideReader{Reader: link.Reader, Dest: ob.Target.Address, OriginalDest: ob.OriginalTarget.Address}
 		link.Writer = &buf.EndpointOverrideWriter{Writer: link.Writer, Dest: ob.Target.Address, OriginalDest: ob.OriginalTarget.Address}
 	}
-	if h.mux != nil {
+	if h.mux != nil && shouldDispatchViaMux(outboundSocketMark) {
 		test := func(err error) {
 			if err != nil {
 				err := errors.New("failed to process mux outbound traffic").Base(err)
@@ -309,7 +315,16 @@ func (h *Handler) Dial(ctx context.Context, dest net.Destination) (stat.Connecti
 		}
 	}
 
-	conn, err := internet.Dial(ctx, dest, h.streamSettings)
+	streamSettings := h.streamSettings
+	if mark := session.OutboundSocketMarkFromContext(ctx); mark != 0 {
+		var applied bool
+		streamSettings, applied = streamSettingsWithOutboundSocketMark(streamSettings, mark, runtime.GOOS, dest.Network)
+		if !applied {
+			errors.LogInfo(ctx, "per-user fwmark is supported only by a direct Freedom outbound on Linux; continuing without it")
+		}
+	}
+
+	conn, err := internet.Dial(ctx, dest, streamSettings)
 	conn = h.getStatCouterConnection(conn)
 	outbounds := session.OutboundsFromContext(ctx)
 	if outbounds != nil {
