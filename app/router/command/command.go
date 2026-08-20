@@ -2,20 +2,31 @@ package command
 
 import (
 	"context"
+	stderrors "errors"
 	"time"
 
+	approuter "github.com/xtls/xray-core/app/router"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/errors"
+	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/core"
 	"github.com/xtls/xray-core/features/routing"
 	"github.com/xtls/xray-core/features/stats"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // routingServer is an implementation of RoutingService.
 type routingServer struct {
 	router       routing.Router
 	routingStats stats.Channel
+}
+
+type ruleSetManager interface {
+	GetRuleSet() (approuter.RuleSetVersion, *serial.TypedMessage, error)
+	GetRuleSetVersion() (approuter.RuleSetVersion, error)
+	ReplaceRuleSet(approuter.RuleSetVersion, *serial.TypedMessage) (approuter.RuleSetVersion, error)
 }
 
 func (s *routingServer) GetBalancerInfo(ctx context.Context, request *GetBalancerInfoRequest) (*GetBalancerInfoResponse, error) {
@@ -79,6 +90,83 @@ func (s *routingServer) ListRule(ctx context.Context, request *ListRuleRequest) 
 		return response, nil
 	}
 	return nil, errors.New("unsupported router implementation")
+}
+
+func (s *routingServer) GetRuleSet(_ context.Context, request *GetRuleSetRequest) (*GetRuleSetResponse, error) {
+	manager, ok := s.router.(ruleSetManager)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "router does not support versioned rule sets")
+	}
+	var (
+		version approuter.RuleSetVersion
+		config  *serial.TypedMessage
+		err     error
+	)
+	if request != nil && request.IncludeConfig {
+		version, config, err = manager.GetRuleSet()
+	} else {
+		version, err = manager.GetRuleSetVersion()
+	}
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	response := &GetRuleSetResponse{
+		Version: &RuleSetVersion{
+			InstanceId: version.InstanceID,
+			Generation: version.Generation,
+		},
+	}
+	if request != nil && request.IncludeConfig {
+		response.Config = config
+	}
+	return response, nil
+}
+
+func (s *routingServer) ReplaceRuleSet(_ context.Context, request *ReplaceRuleSetRequest) (*ReplaceRuleSetResponse, error) {
+	manager, ok := s.router.(ruleSetManager)
+	if !ok {
+		return nil, status.Error(codes.Unimplemented, "router does not support versioned rule sets")
+	}
+	if request == nil || request.ExpectedVersion == nil {
+		return nil, status.Error(codes.InvalidArgument, "expected_version is required")
+	}
+	if request.ExpectedVersion.InstanceId == "" {
+		return nil, status.Error(codes.InvalidArgument, "expected_version.instance_id is required")
+	}
+	if request.ExpectedVersion.Generation == 0 {
+		return nil, status.Error(codes.InvalidArgument, "expected_version.generation is required")
+	}
+	if request.Config == nil {
+		return nil, status.Error(codes.InvalidArgument, "config is required")
+	}
+
+	version, err := manager.ReplaceRuleSet(approuter.RuleSetVersion{
+		InstanceID: request.ExpectedVersion.InstanceId,
+		Generation: request.ExpectedVersion.Generation,
+	}, request.Config)
+	if err != nil {
+		return nil, ruleSetStatusError(err)
+	}
+	return &ReplaceRuleSetResponse{
+		Version: &RuleSetVersion{
+			InstanceId: version.InstanceID,
+			Generation: version.Generation,
+		},
+	}, nil
+}
+
+func ruleSetStatusError(err error) error {
+	switch {
+	case stderrors.Is(err, approuter.ErrRuleSetGenerationConflict):
+		return status.Error(codes.Aborted, err.Error())
+	case stderrors.Is(err, approuter.ErrRuleSetInstanceMismatch),
+		stderrors.Is(err, approuter.ErrRuleSetUnavailable):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case stderrors.Is(err, approuter.ErrRuleSetInvalidVersion):
+		return status.Error(codes.InvalidArgument, err.Error())
+	default:
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
 }
 
 // NewRoutingServer creates a statistics service with statistics manager.

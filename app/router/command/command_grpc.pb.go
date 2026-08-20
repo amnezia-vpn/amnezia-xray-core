@@ -26,6 +26,8 @@ const (
 	RoutingService_AddRule_FullMethodName                = "/xray.app.router.command.RoutingService/AddRule"
 	RoutingService_RemoveRule_FullMethodName             = "/xray.app.router.command.RoutingService/RemoveRule"
 	RoutingService_ListRule_FullMethodName               = "/xray.app.router.command.RoutingService/ListRule"
+	RoutingService_GetRuleSet_FullMethodName             = "/xray.app.router.command.RoutingService/GetRuleSet"
+	RoutingService_ReplaceRuleSet_FullMethodName         = "/xray.app.router.command.RoutingService/ReplaceRuleSet"
 )
 
 // RoutingServiceClient is the client API for RoutingService service.
@@ -39,6 +41,8 @@ type RoutingServiceClient interface {
 	AddRule(ctx context.Context, in *AddRuleRequest, opts ...grpc.CallOption) (*AddRuleResponse, error)
 	RemoveRule(ctx context.Context, in *RemoveRuleRequest, opts ...grpc.CallOption) (*RemoveRuleResponse, error)
 	ListRule(ctx context.Context, in *ListRuleRequest, opts ...grpc.CallOption) (*ListRuleResponse, error)
+	GetRuleSet(ctx context.Context, in *GetRuleSetRequest, opts ...grpc.CallOption) (*GetRuleSetResponse, error)
+	ReplaceRuleSet(ctx context.Context, in *ReplaceRuleSetRequest, opts ...grpc.CallOption) (*ReplaceRuleSetResponse, error)
 }
 
 type routingServiceClient struct {
@@ -128,6 +132,26 @@ func (c *routingServiceClient) ListRule(ctx context.Context, in *ListRuleRequest
 	return out, nil
 }
 
+func (c *routingServiceClient) GetRuleSet(ctx context.Context, in *GetRuleSetRequest, opts ...grpc.CallOption) (*GetRuleSetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRuleSetResponse)
+	err := c.cc.Invoke(ctx, RoutingService_GetRuleSet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *routingServiceClient) ReplaceRuleSet(ctx context.Context, in *ReplaceRuleSetRequest, opts ...grpc.CallOption) (*ReplaceRuleSetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReplaceRuleSetResponse)
+	err := c.cc.Invoke(ctx, RoutingService_ReplaceRuleSet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RoutingServiceServer is the server API for RoutingService service.
 // All implementations must embed UnimplementedRoutingServiceServer
 // for forward compatibility.
@@ -139,6 +163,8 @@ type RoutingServiceServer interface {
 	AddRule(context.Context, *AddRuleRequest) (*AddRuleResponse, error)
 	RemoveRule(context.Context, *RemoveRuleRequest) (*RemoveRuleResponse, error)
 	ListRule(context.Context, *ListRuleRequest) (*ListRuleResponse, error)
+	GetRuleSet(context.Context, *GetRuleSetRequest) (*GetRuleSetResponse, error)
+	ReplaceRuleSet(context.Context, *ReplaceRuleSetRequest) (*ReplaceRuleSetResponse, error)
 	mustEmbedUnimplementedRoutingServiceServer()
 }
 
@@ -169,6 +195,12 @@ func (UnimplementedRoutingServiceServer) RemoveRule(context.Context, *RemoveRule
 }
 func (UnimplementedRoutingServiceServer) ListRule(context.Context, *ListRuleRequest) (*ListRuleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListRule not implemented")
+}
+func (UnimplementedRoutingServiceServer) GetRuleSet(context.Context, *GetRuleSetRequest) (*GetRuleSetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRuleSet not implemented")
+}
+func (UnimplementedRoutingServiceServer) ReplaceRuleSet(context.Context, *ReplaceRuleSetRequest) (*ReplaceRuleSetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplaceRuleSet not implemented")
 }
 func (UnimplementedRoutingServiceServer) mustEmbedUnimplementedRoutingServiceServer() {}
 func (UnimplementedRoutingServiceServer) testEmbeddedByValue()                        {}
@@ -310,6 +342,42 @@ func _RoutingService_ListRule_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RoutingService_GetRuleSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRuleSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).GetRuleSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_GetRuleSet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).GetRuleSet(ctx, req.(*GetRuleSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RoutingService_ReplaceRuleSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceRuleSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoutingServiceServer).ReplaceRuleSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoutingService_ReplaceRuleSet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoutingServiceServer).ReplaceRuleSet(ctx, req.(*ReplaceRuleSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RoutingService_ServiceDesc is the grpc.ServiceDesc for RoutingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -340,6 +408,14 @@ var RoutingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListRule",
 			Handler:    _RoutingService_ListRule_Handler,
+		},
+		{
+			MethodName: "GetRuleSet",
+			Handler:    _RoutingService_GetRuleSet_Handler,
+		},
+		{
+			MethodName: "ReplaceRuleSet",
+			Handler:    _RoutingService_ReplaceRuleSet_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

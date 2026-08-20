@@ -7,8 +7,14 @@ import (
 )
 
 func (r *Router) OverrideBalancer(balancer string, target string) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.state == nil {
+		return ErrRuleSetUnavailable
+	}
+
 	var b *Balancer
-	for tag, bl := range r.balancers {
+	for tag, bl := range r.state.balancers {
 		if tag == balancer {
 			b = bl
 			break
