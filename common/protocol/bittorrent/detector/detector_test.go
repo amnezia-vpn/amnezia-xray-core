@@ -63,6 +63,28 @@ func TestSniffUDPContinuesAfterNoClue(t *testing.T) {
 	}
 }
 
+func TestSniffUDPRejectsDNSUDPTrackerCollisions(t *testing.T) {
+	cases := []struct {
+		name       string
+		payload    []byte
+		wantLength int
+	}{
+		{"98-byte EDNS announce collision", dnsTrackerAnnounceCollision(0xBEEF), 98},
+		{"aligned two-record EDNS scrape collision", dnsTrackerScrapeCollision(0xCAFE), 56},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if len(tc.payload) != tc.wantLength {
+				t.Fatalf("DNS collision length = %d, want %d", len(tc.payload), tc.wantLength)
+			}
+			header, err := SniffUDP(tc.payload)
+			if header != nil || err == nil || errors.Is(err, common.ErrNoClue) {
+				t.Fatalf("SniffUDP() = %v, %v; want definitive non-match", header, err)
+			}
+		})
+	}
+}
+
 func TestSniffUDPErrorAggregation(t *testing.T) {
 	if _, err := SniffUDP([]byte{'d'}); err != common.ErrNoClue {
 		t.Fatalf("one-byte d error = %v, want ErrNoClue", err)

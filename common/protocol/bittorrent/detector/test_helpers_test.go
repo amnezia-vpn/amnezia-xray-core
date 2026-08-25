@@ -72,6 +72,53 @@ func dnsQueryFor(name string, transactionID, flags uint16) []byte {
 	return b
 }
 
+func ednsTwoExtraQuery(name string, transactionID uint16) []byte {
+	b := dnsQueryFor(name, transactionID, 0x0100)
+	binary.BigEndian.PutUint16(b[10:12], 2)
+	return append(b,
+		0, 0, 0x29, 0x10, 0, 0, 0x80, 0, 0, 0,
+		0, 0, 0x29, 0x10, 0, 0, 0x80, 0, 0, 0,
+	)
+}
+
+func twoQuestionQuery(firstName, secondName string, transactionID uint16) []byte {
+	b := dnsQueryFor(firstName, transactionID, 0x0100)
+	binary.BigEndian.PutUint16(b[4:6], 2)
+	for _, label := range strings.Split(secondName, ".") {
+		b = append(b, byte(len(label)))
+		b = append(b, label...)
+	}
+	return append(b, 0, 0, 1, 0, 1)
+}
+
+func answerCarryingQuery(name string, transactionID uint16) []byte {
+	b := dnsQueryFor(name, transactionID, 0x0100)
+	binary.BigEndian.PutUint16(b[6:8], 1)
+	return append(b,
+		0xc0, 0x0c, 0, 1, 0, 1, 0, 0, 0, 0, 0, 4, 127, 0, 0, 1,
+	)
+}
+
+func dnsTrackerAnnounceCollision(transactionID uint16) []byte {
+	b := dnsQueryFor("proxy.example.test", transactionID, 0x0100)
+	binary.BigEndian.PutUint16(b[10:12], 1)
+	b = append(b,
+		0, 0, 0x29, 0x10, 0, 0, 0x80, 0, 0, 0, 0x33,
+		0, 2, 0, 0x2f,
+	)
+	b = append(b, make([]byte, 45)...)
+	return append(b, 0x12, 0x34)
+}
+
+func dnsTrackerScrapeCollision(transactionID uint16) []byte {
+	b := dnsQueryFor("aaaaaaaa.example", transactionID, 0x0100)
+	binary.BigEndian.PutUint16(b[10:12], 2)
+	return append(b,
+		0, 0, 0x29, 0x10, 0, 0, 0x80, 0, 0, 0, 0,
+		0, 0, 0x29, 0x10, 0, 0, 0x80, 0, 0, 0, 0,
+	)
+}
+
 func dhtDict(parts ...string) []byte {
 	return []byte("d" + strings.Join(parts, "") + "e")
 }

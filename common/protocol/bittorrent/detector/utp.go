@@ -41,18 +41,18 @@ func sniffUTP(payload []byte) error {
 }
 
 func isDNSQuery(payload []byte) bool {
-	if len(payload) < 17 || payload[2]&0x80 != 0 || payload[2]&0x78 != 0 {
+	if len(payload) < 17 {
 		return false
 	}
-	if binary.BigEndian.Uint16(payload[4:6]) != 1 {
+	if payload[2]&0x80 != 0 {
 		return false
 	}
-	if binary.BigEndian.Uint16(payload[6:8]) != 0 ||
-		binary.BigEndian.Uint16(payload[8:10]) != 0 {
+	if payload[2]&0x78 > 0x28 {
 		return false
 	}
-	additional := binary.BigEndian.Uint16(payload[10:12])
-	if additional > 1 {
+	switch binary.BigEndian.Uint16(payload[4:6]) {
+	case 1, 2:
+	default:
 		return false
 	}
 	pos := 12
@@ -70,8 +70,5 @@ func isDNSQuery(payload []byte) bool {
 		}
 		pos += 1 + labelLength
 	}
-	if pos+4 > len(payload) {
-		return false
-	}
-	return additional == 1 || pos+4 == len(payload)
+	return pos+4 <= len(payload)
 }

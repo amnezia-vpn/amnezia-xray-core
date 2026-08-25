@@ -10,6 +10,9 @@ func sniffUDPTracker(payload []byte) error {
 	if len(payload) == 0 {
 		return common.ErrNoClue
 	}
+	if isDNSQuery(payload) {
+		return errNotBittorrent
+	}
 	if len(payload) == 16 &&
 		binary.BigEndian.Uint64(payload[:8]) == 0x41727101980 &&
 		binary.BigEndian.Uint32(payload[8:12]) == 0 {

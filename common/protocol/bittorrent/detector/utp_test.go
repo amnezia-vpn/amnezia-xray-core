@@ -69,6 +69,24 @@ func TestSniffUTPIgnoresDNSQueries(t *testing.T) {
 			t.Fatalf("sniffUTP() error = %v, want definitive non-match", err)
 		}
 	})
+
+	cases := []struct {
+		name  string
+		query []byte
+	}{
+		{"edns query with two additional records", ednsTwoExtraQuery("tracker.example.com", 0x3100)},
+		{"query with two questions", twoQuestionQuery("tracker.example.com", "ya.ru", 0x3100)},
+		{"query with trailing bytes and zero additional records", append(dnsQueryFor("tracker.example.com", 0x3100, 0x0100), 0xde, 0xad, 0xbe, 0xef)},
+		{"dynamic update opcode", dnsQueryFor("tracker.example.com", 0x3100, 0x2800)},
+		{"query carrying an answer section", answerCarryingQuery("tracker.example.com", 0x3100)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := sniffUTP(tc.query); err != errNotBittorrent {
+				t.Fatalf("sniffUTP() error = %v, want definitive non-match", err)
+			}
+		})
+	}
 }
 
 func TestSniffUTPRejectsOtherDatagrams(t *testing.T) {
