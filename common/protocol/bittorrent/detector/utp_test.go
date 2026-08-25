@@ -43,6 +43,34 @@ func TestSniffUTPIgnoresTimestampClockBase(t *testing.T) {
 	}
 }
 
+func TestSniffUTPIgnoresDNSQueries(t *testing.T) {
+	transactionIDs := []uint16{0x0100, 0x1100, 0x2100, 0x3100, 0x4100}
+	names := []string{
+		"tracker.example.com",
+		"ya.ru",
+		"roblox.com",
+		"a.very.long.domain.name.with.many.labels.example.org",
+	}
+	for _, transactionID := range transactionIDs {
+		for _, name := range names {
+			t.Run(name, func(t *testing.T) {
+				if err := sniffUTP(dnsQueryFor(name, transactionID, 0x0100)); err != errNotBittorrent {
+					t.Fatalf("sniffUTP() error = %v, want definitive non-match", err)
+				}
+			})
+		}
+	}
+
+	t.Run("edns0", func(t *testing.T) {
+		query := dnsQueryFor("tracker.example.com", 0x3100, 0x0100)
+		query[11] = 1
+		query = append(query, 0, 0, 0x29, 0x10, 0, 0, 0x80, 0, 0, 0)
+		if err := sniffUTP(query); err != errNotBittorrent {
+			t.Fatalf("sniffUTP() error = %v, want definitive non-match", err)
+		}
+	})
+}
+
 func TestSniffUTPRejectsOtherDatagrams(t *testing.T) {
 	unknownExtension := utpPacket(0, 0x07e1, 1, nil, nil)
 	unknownExtension[1] = 5

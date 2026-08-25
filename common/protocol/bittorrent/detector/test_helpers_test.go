@@ -59,6 +59,19 @@ func utpPacket(typ byte, connectionID uint16, timestamp uint32, extensions []utp
 	return append(b, payload...)
 }
 
+func dnsQueryFor(name string, transactionID, flags uint16) []byte {
+	b := make([]byte, 12, 12+len(name)+6)
+	binary.BigEndian.PutUint16(b[0:2], transactionID)
+	binary.BigEndian.PutUint16(b[2:4], flags)
+	binary.BigEndian.PutUint16(b[4:6], 1)
+	for _, label := range strings.Split(name, ".") {
+		b = append(b, byte(len(label)))
+		b = append(b, label...)
+	}
+	b = append(b, 0, 0, 1, 0, 1)
+	return b
+}
+
 func dhtDict(parts ...string) []byte {
 	return []byte("d" + strings.Join(parts, "") + "e")
 }
