@@ -33,6 +33,9 @@ type MemoryValidator struct {
 
 // Add a VLESS user, Email must be empty or unique.
 func (v *MemoryValidator) Add(u *protocol.MemoryUser) error {
+	if err := ValidateUserFwmark(u.Fwmark); err != nil {
+		return err
+	}
 	if u.Email != "" {
 		_, loaded := v.email.LoadOrStore(strings.ToLower(u.Email), u)
 		if loaded {

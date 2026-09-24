@@ -73,6 +73,12 @@ type Outbound interface {
 	Process(context.Context, *transport.Link, internet.Dialer) error
 }
 
+// OutboundContextPreparer lets an outbound derive immutable per-flow context
+// before the outbound handler selects a direct or multiplexed dispatch path.
+type OutboundContextPreparer interface {
+	PrepareOutboundContext(context.Context) context.Context
+}
+
 // UserManager is the interface for Inbounds and Outbounds that can manage their users.
 type UserManager interface {
 	// AddUser adds a new user.

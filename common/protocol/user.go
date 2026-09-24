@@ -32,6 +32,7 @@ func (u *User) ToMemoryUser() (*MemoryUser, error) {
 		Account: account,
 		Email:   u.Email,
 		Level:   u.Level,
+		Fwmark:  u.Fwmark,
 	}, nil
 }
 
@@ -43,6 +44,7 @@ func ToProtoUser(mu *MemoryUser) *User {
 		Account: serial.ToTypedMessage(mu.Account.ToProto()),
 		Email:   mu.Email,
 		Level:   mu.Level,
+		Fwmark:  mu.Fwmark,
 	}
 }
 
@@ -52,4 +54,5 @@ type MemoryUser struct {
 	Account Account
 	Email   string
 	Level   uint32
+	Fwmark  uint32
 }
