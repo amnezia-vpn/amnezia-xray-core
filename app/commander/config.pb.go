@@ -31,9 +31,12 @@ type Config struct {
 	Listen string `protobuf:"bytes,3,opt,name=listen,proto3" json:"listen,omitempty"`
 	// Services that supported by this server. All services must implement Service
 	// interface.
-	Service       []*serial.TypedMessage `protobuf:"bytes,2,rep,name=service,proto3" json:"service,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Service []*serial.TypedMessage `protobuf:"bytes,2,rep,name=service,proto3" json:"service,omitempty"`
+	// Optional gRPC message limits in bytes. Zero keeps the gRPC defaults.
+	MaxReceiveMessageSize int32 `protobuf:"varint,4,opt,name=max_receive_message_size,json=maxReceiveMessageSize,proto3" json:"max_receive_message_size,omitempty"`
+	MaxSendMessageSize    int32 `protobuf:"varint,5,opt,name=max_send_message_size,json=maxSendMessageSize,proto3" json:"max_send_message_size,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Config) Reset() {
@@ -87,6 +90,20 @@ func (x *Config) GetService() []*serial.TypedMessage {
 	return nil
 }
 
+func (x *Config) GetMaxReceiveMessageSize() int32 {
+	if x != nil {
+		return x.MaxReceiveMessageSize
+	}
+	return 0
+}
+
+func (x *Config) GetMaxSendMessageSize() int32 {
+	if x != nil {
+		return x.MaxSendMessageSize
+	}
+	return 0
+}
+
 // ReflectionConfig is the placeholder config for ReflectionService.
 type ReflectionConfig struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -128,11 +145,13 @@ var File_app_commander_config_proto protoreflect.FileDescriptor
 
 const file_app_commander_config_proto_rawDesc = "" +
 	"\n" +
-	"\x1aapp/commander/config.proto\x12\x12xray.app.commander\x1a!common/serial/typed_message.proto\"n\n" +
+	"\x1aapp/commander/config.proto\x12\x12xray.app.commander\x1a!common/serial/typed_message.proto\"\xda\x01\n" +
 	"\x06Config\x12\x10\n" +
 	"\x03tag\x18\x01 \x01(\tR\x03tag\x12\x16\n" +
 	"\x06listen\x18\x03 \x01(\tR\x06listen\x12:\n" +
-	"\aservice\x18\x02 \x03(\v2 .xray.common.serial.TypedMessageR\aservice\"\x12\n" +
+	"\aservice\x18\x02 \x03(\v2 .xray.common.serial.TypedMessageR\aservice\x127\n" +
+	"\x18max_receive_message_size\x18\x04 \x01(\x05R\x15maxReceiveMessageSize\x121\n" +
+	"\x15max_send_message_size\x18\x05 \x01(\x05R\x12maxSendMessageSize\"\x12\n" +
 	"\x10ReflectionConfigBX\n" +
 	"\x16com.xray.app.commanderP\x01Z'github.com/xtls/xray-core/app/commander\xaa\x02\x12Xray.App.Commanderb\x06proto3"
 

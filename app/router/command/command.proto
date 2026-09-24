@@ -115,6 +115,31 @@ message ListRuleResponse{
   repeated ListRuleItem rules = 1;
 }
 
+message RuleSetVersion {
+  string instance_id = 1;
+  uint64 generation = 2;
+}
+
+message GetRuleSetRequest {
+  // Controllers that already own desired state can request only the version
+  // and avoid transferring a potentially large routing config.
+  bool include_config = 1;
+}
+
+message GetRuleSetResponse {
+  RuleSetVersion version = 1;
+  xray.common.serial.TypedMessage config = 2;
+}
+
+message ReplaceRuleSetRequest {
+  RuleSetVersion expected_version = 1;
+  xray.common.serial.TypedMessage config = 2;
+}
+
+message ReplaceRuleSetResponse {
+  RuleSetVersion version = 1;
+}
+
 service RoutingService {
   rpc SubscribeRoutingStats(SubscribeRoutingStatsRequest)
       returns (stream RoutingContext) {}
@@ -127,6 +152,8 @@ service RoutingService {
   rpc RemoveRule(RemoveRuleRequest) returns (RemoveRuleResponse) {}
 
   rpc ListRule(ListRuleRequest) returns (ListRuleResponse) {}
+  rpc GetRuleSet(GetRuleSetRequest) returns (GetRuleSetResponse) {}
+  rpc ReplaceRuleSet(ReplaceRuleSetRequest) returns (ReplaceRuleSetResponse) {}
 }
 
 message Config {}
