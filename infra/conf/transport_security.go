@@ -113,10 +113,10 @@ func (c *REALITYConfig) Build() (proto.Message, error) {
 					config.MinClientVer[i] = byte(u)
 				}
 			}
-			errors.LogWarning(context.Background(), `REALITY: Changing "minClientVer" will increase the likelihood of your server's IP being blocked by the GFW`)
+			// errors.LogWarning(context.Background(), `REALITY: Changing "minClientVer" will increase the likelihood of your server's IP being blocked by the GFW`)
 		} else {
-			config.MinClientVer = []byte{26, 3, 27} // change it at your own risk: https://github.com/XTLS/Xray-core/commit/af7eb68028732a8ee3c0e5d6ab2b8a657bb2e770
-			errors.LogWarning(context.Background(), `REALITY: The default minimal client version is Xray-core v26.3.27, other clients may be refused to connect`)
+			// config.MinClientVer = []byte{26, 3, 27} // change it at your own risk: https://github.com/XTLS/Xray-core/commit/af7eb68028732a8ee3c0e5d6ab2b8a657bb2e770
+			// errors.LogWarning(context.Background(), `REALITY: The default minimal client version is Xray-core v26.3.27, other clients may be refused to connect`)
 		}
 		if c.MaxClientVer != "" {
 			config.MaxClientVer = make([]byte, 3)
@@ -316,6 +316,7 @@ type TLSConfig struct {
 	ECHServerKeys           string           `json:"echServerKeys"`
 	ECHConfigList           string           `json:"echConfigList"`
 	ECHSocketSettings       *SocketConfig    `json:"echSockopt"`
+	UseSystemCA             bool             `json:"useSystemCA"`
 }
 
 // Build implements Buildable.
@@ -403,6 +404,7 @@ func (c *TLSConfig) Build() (proto.Message, error) {
 		}
 		config.EchSocketSettings = ss
 	}
+	config.UseSystemCa = c.UseSystemCA
 
 	return config, nil
 }

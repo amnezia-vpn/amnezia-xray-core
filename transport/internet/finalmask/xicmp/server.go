@@ -37,17 +37,17 @@ type record struct {
 }
 
 type xicmpConnServer struct {
-	conn     net.PacketConn
-	icmp4    *icmp.PacketConn
-	icmp6    *icmp.PacketConn
-	ips      map[netip.Addr]struct{}
-	rec      map[string]record
-	readCh   chan packet
-	closedCh chan struct{}
-	mu       sync.Mutex
+	icmp4   *icmp.PacketConn
+	icmp6   *icmp.PacketConn
+	ips     map[netip.Addr]struct{}
+	rec     map[string]record
+	readCh  chan packet
+	closeCh chan struct{}
+	wg      sync.WaitGroup
+	mu      sync.Mutex
 }
 
-func NewConnServer(c *Config, raw net.PacketConn) (net.PacketConn, error) {
+func NewConnServer(c *Config) (net.PacketConn, error) {
 	icmp4, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
 		return nil, err
@@ -63,16 +63,16 @@ func NewConnServer(c *Config, raw net.PacketConn) (net.PacketConn, error) {
 	}
 
 	conn := &xicmpConnServer{
-		conn:     raw,
-		icmp4:    icmp4,
-		icmp6:    icmp6,
-		ips:      ips,
-		rec:      make(map[string]record),
-		readCh:   make(chan packet),
-		closedCh: make(chan struct{}),
+		icmp4:   icmp4,
+		icmp6:   icmp6,
+		ips:     ips,
+		rec:     make(map[string]record),
+		readCh:  make(chan packet),
+		closeCh: make(chan struct{}),
 	}
 
 	go conn.clean()
+	conn.wg.Add(2)
 	go conn.recv4()
 	go conn.recv6()
 
@@ -81,7 +81,7 @@ func NewConnServer(c *Config, raw net.PacketConn) (net.PacketConn, error) {
 
 func (c *xicmpConnServer) closed() bool {
 	select {
-	case <-c.closedCh:
+	case <-c.closeCh:
 		return true
 	default:
 		return false
@@ -102,33 +102,35 @@ func (c *xicmpConnServer) clean() {
 				}
 			}
 			c.mu.Unlock()
-		case <-c.closedCh:
+		case <-c.closeCh:
 			return
 		}
 	}
 }
 
 func (c *xicmpConnServer) recv4() {
+	defer c.wg.Done()
+
 	var b [finalmask.UDPSize]byte
-
 	for {
-		if c.closed() {
-			return
-		}
-
 		n, addr, err := c.icmp4.ReadFrom(b[:])
 		if err != nil {
+			if c.closed() {
+				return
+			}
 			var netErr net.Error
 			if goerrors.As(err, &netErr) && netErr.Timeout() {
 				select {
 				case c.readCh <- packet{
 					err: err,
 				}:
-				case <-c.closedCh:
+				case <-c.closeCh:
 					return
 				}
+				continue
 			}
-			continue
+			errors.LogErrorInner(context.Background(), err, "recv err 4")
+			return
 		}
 
 		msg, err := icmp.ParseMessage(1, b[:n])
@@ -179,7 +181,7 @@ func (c *xicmpConnServer) recv4() {
 			p:    p,
 			addr: cAddr,
 		}:
-		case <-c.closedCh:
+		case <-c.closeCh:
 			pool.Put(p)
 			return
 		}
@@ -187,26 +189,28 @@ func (c *xicmpConnServer) recv4() {
 }
 
 func (c *xicmpConnServer) recv6() {
+	defer c.wg.Done()
+
 	var b [finalmask.UDPSize]byte
-
 	for {
-		if c.closed() {
-			return
-		}
-
 		n, addr, err := c.icmp6.ReadFrom(b[:])
 		if err != nil {
+			if c.closed() {
+				return
+			}
 			var netErr net.Error
 			if goerrors.As(err, &netErr) && netErr.Timeout() {
 				select {
 				case c.readCh <- packet{
 					err: err,
 				}:
-				case <-c.closedCh:
+				case <-c.closeCh:
 					return
 				}
+				continue
 			}
-			continue
+			errors.LogErrorInner(context.Background(), err, "recv err 6")
+			return
 		}
 
 		msg, err := icmp.ParseMessage(58, b[:n])
@@ -257,7 +261,7 @@ func (c *xicmpConnServer) recv6() {
 			p:    p,
 			addr: cAddr,
 		}:
-		case <-c.closedCh:
+		case <-c.closeCh:
 			pool.Put(p)
 			return
 		}
@@ -265,16 +269,15 @@ func (c *xicmpConnServer) recv6() {
 }
 
 func (c *xicmpConnServer) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	select {
-	case packet := <-c.readCh:
+	packet, ok := <-c.readCh
+	if ok {
 		if packet.p != nil {
 			n = copy(p, packet.p)
 			pool.Put(packet.p)
 		}
 		return n, packet.addr, packet.err
-	case <-c.closedCh:
-		return 0, nil, io.EOF
 	}
+	return 0, nil, io.EOF
 }
 
 func (c *xicmpConnServer) WriteTo(p []byte, addr net.Addr) (n int, err error) {
@@ -310,10 +313,9 @@ func (c *xicmpConnServer) WriteTo(p []byte, addr net.Addr) (n int, err error) {
 	}
 
 	if err != nil {
-		errors.LogErrorInner(context.Background(), err, "xicmp write")
+		errors.LogErrorInner(context.Background(), err, "send err")
 		return 0, err
 	}
-
 	return len(p), nil
 }
 
@@ -323,15 +325,16 @@ func (c *xicmpConnServer) Close() error {
 	if c.closed() {
 		return nil
 	}
-	close(c.closedCh)
+	close(c.closeCh)
 	_ = c.icmp4.Close()
 	_ = c.icmp6.Close()
-	_ = c.conn.Close()
+	c.wg.Wait()
+	close(c.readCh)
 	return nil
 }
 
 func (c *xicmpConnServer) LocalAddr() net.Addr {
-	return c.conn.LocalAddr()
+	return &net.UDPAddr{IP: []byte{0, 0, 0, 0}}
 }
 
 func (c *xicmpConnServer) SetDeadline(t time.Time) error {

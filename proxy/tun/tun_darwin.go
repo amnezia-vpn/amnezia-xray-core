@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/xtls/xray-core/common/buf"
@@ -18,9 +20,6 @@ import (
 	"github.com/xtls/xray-core/common/platform"
 	"golang.org/x/net/route"
 	"golang.org/x/sys/unix"
-	"gvisor.dev/gvisor/pkg/buffer"
-	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
 const (
@@ -38,14 +37,22 @@ const (
 	ND6_INFINITE_LIFETIME = 0xFFFFFFFF // netinet6/nd6.h
 )
 
-//go:linkname procyield runtime.procyield
-func procyield(cycles uint32)
-
 type DarwinTun struct {
 	tunFile *os.File
 	options *Config
 	tunFd   int
 	ownsFd  bool // true for macOS (we created the fd), false for iOS (fd from system)
+
+	// Genuinely blocks Wait() until tunFd is readable, instead of the
+	// previous procyield-only busy-spin (ReadPacket() reads and then calls
+	// Wait() in a tight
+	// loop with no other throttling whenever the queue is empty -- with
+	// only procyield(1), that pins a full CPU core for as long as the
+	// tunnel is up, observed causing severe device heating/thermal
+	// shutdown). nil if kqueue setup failed, in which case Wait() falls
+	// back to a bounded time.Sleep instead. See waitKqueue's own doc
+	// comment for why this is a dedicated type rather than a bare fd.
+	waitKq *waitKqueue
 
 	routeMonitor     *os.File
 	routeMonitorOnce sync.Once
@@ -53,22 +60,109 @@ type DarwinTun struct {
 	gateway          netip.Prefix
 }
 
-var (
-	_ Tun          = (*DarwinTun)(nil)
-	_ GVisorDevice = (*DarwinTun)(nil)
-)
+// waitKqueue owns a kqueue fd used by DarwinTun.Wait() to block on
+// read-readiness. Closing and waiting can race from different goroutines
+// (Close() from the caller that tears down the tunnel, Wait() from
+// the goroutine that reads packets) -- reviewer feedback on XTLS/Xray-core#6580
+// found that a bare `int` fd field let Close() race Wait()'s use of the
+// same fd number, and on Darwin a closed fd number can be reused by an
+// unrelated concurrent open() before Wait() gets to call Kevent on it,
+// so Wait() could end up polling (or Close() could end up closing) a
+// completely unrelated file descriptor. This type makes closing
+// idempotent (sync.Once) and gates every Kevent call behind an atomic
+// "closed" flag checked immediately before the syscall, so Wait() never
+// issues a kevent syscall against a fd number that Close() has already
+// (or is concurrently) invalidated -- there's still a narrow window where
+// Wait() checks-then-uses the fd, but Close() only actually closes it
+// after Wait() cannot start a new syscall on it (the flag is set first,
+// synchronized with acquire/release semantics), which is sufficient since
+// Wait()'s Kevent call itself is what's being raced, not a fd read/write.
+type waitKqueue struct {
+	fd     int
+	closed atomic.Bool
+	once   sync.Once
+}
+
+// newWaitKqueue creates a kqueue registered for read-readiness on fd, for
+// Wait() to block on. Returns nil if anything fails, so callers can fall
+// back to a bounded sleep rather than error out of NewTun over what is
+// purely a CPU-efficiency concern.
+func newWaitKqueue(fd int) *waitKqueue {
+	kq, err := unix.Kqueue()
+	if err != nil {
+		return nil
+	}
+	_, err = unix.Kevent(kq, []unix.Kevent_t{{
+		Ident:  uint64(fd),
+		Filter: unix.EVFILT_READ,
+		Flags:  unix.EV_ADD | unix.EV_ENABLE,
+	}}, nil, nil)
+	if err != nil {
+		_ = unix.Close(kq)
+		return nil
+	}
+	return &waitKqueue{fd: kq}
+}
+
+// wait blocks until the registered fd is readable, timeout elapses, or a
+// benign interrupt occurs -- all three are "this kqueue is still healthy,
+// the caller should just try again" and return true; the caller
+// (DarwinTun.Wait) doesn't need to distinguish them since ReadPacket()
+// reads right after anyway, and that already handles "nothing was
+// actually there" by waiting again. Returns false only when the kqueue
+// itself is no longer usable -- already closed, or the kevent syscall
+// failed for a reason other than EINTR -- see its own call site in
+// DarwinTun.Wait for why a persistent failure must not be silently
+// retried forever (reviewer feedback, XTLS/Xray-core#6580 P2).
+func (w *waitKqueue) wait(timeout time.Duration) (ok bool) {
+	if w.closed.Load() {
+		return false
+	}
+	events := make([]unix.Kevent_t, 1)
+	ts := unix.NsecToTimespec(timeout.Nanoseconds())
+	_, err := unix.Kevent(w.fd, nil, events, &ts)
+	if err != nil {
+		return errors.Is(err, unix.EINTR)
+	}
+	return true
+}
+
+// close marks the kqueue as unusable (so any Wait() call that hasn't yet
+// entered the kevent syscall bails out instead) and closes the underlying
+// fd exactly once, regardless of how many times close is called or
+// whether it races a Wait() already inside its kevent syscall (that call
+// either completes against the still-open fd or returns an error safely
+// -- either way, no other goroutine can be handed this fd number in
+// between the atomic flag flip and the actual close, since nothing else
+// in this type ever creates a new kqueue with the same field).
+func (w *waitKqueue) close() {
+	w.once.Do(func() {
+		w.closed.Store(true)
+		_ = unix.Close(w.fd)
+	})
+}
+
+var _ Tun = (*DarwinTun)(nil)
 
 func NewTun(options *Config) (Tun, error) {
 	// Check if fd is provided via environment (iOS mode)
 	fdStr := platform.NewEnvFlag(platform.TunFdKey).GetValue(func() string { return "" })
 	if fdStr != "" {
 		// iOS: use provided fd from NetworkExtension
-		fd, err := strconv.Atoi(fdStr)
+		providedFd, err := strconv.Atoi(fdStr)
+		if err != nil {
+			return nil, err
+		}
+
+		// duplicate NetworkExtension fd so Xray can close its own handle
+		// without closing the original.
+		fd, err := unix.FcntlInt(uintptr(providedFd), unix.F_DUPFD_CLOEXEC, 0)
 		if err != nil {
 			return nil, err
 		}
 
 		if err = unix.SetNonblock(fd, true); err != nil {
+			_ = unix.Close(fd)
 			return nil, err
 		}
 
@@ -77,6 +171,7 @@ func NewTun(options *Config) (Tun, error) {
 			options: options,
 			tunFd:   fd,
 			ownsFd:  false,
+			waitKq:  newWaitKqueue(fd),
 		}, nil
 	}
 
@@ -103,6 +198,7 @@ func NewTun(options *Config) (Tun, error) {
 		options: options,
 		tunFd:   int(tunFile.Fd()),
 		ownsFd:  true,
+		waitKq:  newWaitKqueue(int(tunFile.Fd())),
 		gateway: gateway,
 	}, nil
 }
@@ -134,12 +230,11 @@ func (t *DarwinTun) Close() error {
 			_ = t.routeMonitor.Close()
 		}
 	})
-	routeErr := t.unsetSystemRoutes()
-	if t.ownsFd {
-		return xerrors.Combine(routeErr, t.tunFile.Close())
+	if t.waitKq != nil {
+		t.waitKq.close()
 	}
-	// iOS: don't close the fd, it's owned by NetworkExtension
-	return routeErr
+	routeErr := t.unsetSystemRoutes()
+	return xerrors.Combine(routeErr, t.tunFile.Close())
 }
 
 func (t *DarwinTun) monitorRouteChanges() {
@@ -173,82 +268,82 @@ func (t *DarwinTun) Index() (int, error) {
 	return iface.Index, nil
 }
 
-// WritePacket implements GVisorDevice method to write one packet to the tun device
-func (t *DarwinTun) WritePacket(packet *stack.PacketBuffer) tcpip.Error {
-	// request memory to write from reusable buffer pool
-	b := buf.NewWithSize(int32(t.options.MTU) + utunHeaderSize)
-	defer b.Release()
-
-	// prepare Darwin specific packet header
-	_, _ = b.Write([]byte{0x0, 0x0, 0x0, 0x0})
-	// copy the bytes of slices that compose the packet into the allocated buffer
-	for _, packetElement := range packet.AsSlices() {
-		_, _ = b.Write(packetElement)
-	}
-	// fill Darwin specific header from the first raw packet byte, that we can access now
+// WritePacket implements Tun: the two parts are copied behind the header that the system wants in front of a packet
+func (t *DarwinTun) WritePacket(header, payload []byte) error {
 	var family byte
-	switch b.Byte(4) >> 4 {
+	switch header[0] >> 4 {
 	case 4:
 		family = unix.AF_INET
 	case 6:
 		family = unix.AF_INET6
 	default:
-		return &tcpip.ErrAborted{}
+		return xerrors.New("not an ip packet")
 	}
-	b.SetByte(3, family)
 
-	if _, err := t.tunFile.Write(b.Bytes()); err != nil {
-		if errors.Is(err, unix.EAGAIN) {
-			return &tcpip.ErrWouldBlock{}
-		}
-		return &tcpip.ErrAborted{}
-	}
-	return nil
-}
-
-// ReadPacket implements GVisorDevice method to read one packet from the tun device
-// It is expected that the method will not block, rather return ErrQueueEmpty when there is nothing on the line,
-// which will make the stack call Wait which should implement desired push-back
-func (t *DarwinTun) ReadPacket() (byte, *stack.PacketBuffer, error) {
 	// request memory to write from reusable buffer pool
-	b := buf.NewWithSize(int32(t.options.MTU) + utunHeaderSize)
+	b := buf.NewWithSize(int32(utunHeaderSize + len(header) + len(payload)))
+	defer b.Release()
+	b.Extend(utunHeaderSize)[3] = family
+	_, _ = b.Write(header)
+	_, _ = b.Write(payload)
 
-	// read the bytes to the interface file
-	n, err := b.ReadFrom(t.tunFile)
-	if errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EINTR) {
-		b.Release()
-		return 0, nil, ErrQueueEmpty
-	}
-	if err != nil {
-		b.Release()
-		return 0, nil, err
-	}
-
-	// discard empty or sub-empty packets
-	if n <= utunHeaderSize {
-		b.Release()
-		return 0, nil, ErrQueueEmpty
-	}
-
-	// network protocol version from first byte of the raw packet, the one that follows Darwin specific header
-	version := b.Byte(utunHeaderSize) >> 4
-	packetBuffer := buffer.MakeWithData(b.BytesFrom(utunHeaderSize))
-	return version, stack.NewPacketBuffer(stack.PacketBufferOptions{
-		Payload:           packetBuffer,
-		IsForwardedPacket: true,
-		OnRelease: func() {
-			b.Release()
-		},
-	}), nil
+	_, err := t.tunFile.Write(b.Bytes())
+	return err
 }
 
-// Wait some cpu cycles
+// ReadPacket implements Tun: it reads into b, the packet follows the header that the system puts in front of it
+func (t *DarwinTun) ReadPacket(b []byte) ([]byte, error) {
+	for {
+		n, err := t.tunFile.Read(b)
+		if errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EINTR) || err == nil && n <= utunHeaderSize {
+			// nothing on the line, or an empty packet
+			t.Wait()
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		return b[utunHeaderSize:n], nil
+	}
+}
+
+// Wait blocks until tunFd is readable (or a short timeout elapses), rather
+// than spinning the CPU -- see the waitKq field's own doc comment. A bounded
+// timeout (not an indefinite wait) keeps this responsive to a Close() that
+// happens to race a call already parked here.
+//
+// Reviewer feedback (XTLS/Xray-core#6580, P2): the original version
+// discarded every error from the underlying kevent syscall. ReadPacket()
+// reads and then calls Wait() in an
+// unconditional tight loop -- if kevent started failing at runtime for a
+// persistent reason (not just a benign EINTR), Wait() returning
+// immediately every time reintroduces exactly the busy-spin this whole
+// change exists to remove, just routed through a failing syscall instead
+// of procyield. waitKq.wait's own bool return distinguishes "genuinely
+// interrupted, try again" from "this kqueue is unusable now" -- Wait()
+// permanently falls back to the sleep path once that happens, rather than
+// retrying the same broken kqueue forever.
 func (t *DarwinTun) Wait() {
-	procyield(1)
-}
-
-func (t *DarwinTun) newEndpoint() (stack.LinkEndpoint, error) {
-	return &LinkEndpoint{deviceMTU: t.options.MTU, device: t}, nil
+	if t.waitKq != nil && t.waitKq.wait(time.Second) {
+		return
+	}
+	if t.waitKq != nil {
+		// Persistent kevent failure (not a benign EINTR, and not just
+		// "the 1s timeout elapsed with nothing to read" -- wait() already
+		// returned true for both of those cases above). Stop trusting
+		// this kqueue for the rest of this DarwinTun's lifetime instead of
+		// re-attempting a syscall that's already shown it won't succeed.
+		t.waitKq.close()
+		t.waitKq = nil
+	}
+	// Reviewer feedback (XTLS/Xray-core#6580): procyield here is the same
+	// busy-spin this whole change exists to remove, just gated behind an
+	// edge case (kqueue setup failing, which practically never happens on
+	// real Darwin systems, or having just failed permanently above)
+	// instead of always -- a genuine bounded sleep actually yields the CPU
+	// instead of being a near-instant scheduler hint that lets the tight
+	// loop of ReadPacket() spin just as hot as before.
+	time.Sleep(time.Millisecond)
 }
 
 // open the interface, by creating new utunN if in the system and returning its file descriptor
@@ -463,19 +558,16 @@ func ioctlPtr(fd int, req uint, arg unsafe.Pointer) error {
 }
 
 func setinterface(network, address string, fd uintptr, iface *net.Interface) error {
-	var err1, err2 error
-
 	switch network {
 	case "tcp6", "udp6", "ip6":
-		err1 = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index)
-		fallthrough
+		// IPV6_BOUND_IF binds the IPv4 traffic of a dual-stack socket as
+		// well, and an IPv6 socket rejects IP_BOUND_IF with EINVAL.
+		return unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index)
 	case "tcp4", "udp4", "ip4":
-		err2 = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index)
+		return unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index)
 	default:
 		panic(network + " " + address)
 	}
-
-	return errors.Join(err1, err2)
 }
 
 func findOutboundInterface(tunIndex int, fixedName string) (*net.Interface, error) {

@@ -56,6 +56,9 @@ message RoutingRule {
 
   repeated string process = 21;
   WebhookConfig webhook = 22;
+
+  // List of operating systems for matching the one Xray itself is running on.
+  repeated string local_os = 23;
 }
 
 message WebhookConfig {
@@ -107,4 +110,5 @@ message Config {
   DomainStrategy domain_strategy = 1;
   repeated RoutingRule rule = 2;
   repeated BalancingRule balancing_rule = 3;
+  string script = 4;
 }

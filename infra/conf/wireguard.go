@@ -59,13 +59,13 @@ func (c *WireGuardPeerConfig) Build() (*wireguard.PeerConfig, error) {
 type WireGuardConfig struct {
 	IsClient bool `json:""`
 
-	NoKernelTun    bool                   `json:"noKernelTun"`
-	SecretKey      string                 `json:"secretKey"`
-	Address        []string               `json:"address"`
-	Peers          []*WireGuardPeerConfig `json:"peers"`
-	MTU            int32                  `json:"mtu"`
-	Reserved       []byte                 `json:"reserved"`
-	DomainStrategy string                 `json:"domainStrategy"`
+	NoKernelTun bool                   `json:"noKernelTun"`
+	SecretKey   string                 `json:"secretKey"`
+	Address     []string               `json:"address"`
+	Peers       []*WireGuardPeerConfig `json:"peers"`
+	MTU         int32                  `json:"mtu"`
+	Reserved    []byte                 `json:"reserved"`
+	DNS         []string               `json:"remoteDNS"`
 }
 
 func (c *WireGuardConfig) Build() (proto.Message, error) {
@@ -124,23 +124,9 @@ func (c *WireGuardConfig) Build() (proto.Message, error) {
 	}
 	config.Reserved = c.Reserved
 
-	switch strings.ToLower(c.DomainStrategy) {
-	case "forceip", "":
-		config.DomainStrategy = wireguard.DeviceConfig_FORCE_IP
-	case "forceipv4":
-		config.DomainStrategy = wireguard.DeviceConfig_FORCE_IP4
-	case "forceipv6":
-		config.DomainStrategy = wireguard.DeviceConfig_FORCE_IP6
-	case "forceipv4v6":
-		config.DomainStrategy = wireguard.DeviceConfig_FORCE_IP46
-	case "forceipv6v4":
-		config.DomainStrategy = wireguard.DeviceConfig_FORCE_IP64
-	default:
-		return nil, errors.New("unsupported domain strategy: ", c.DomainStrategy)
-	}
-
 	config.IsClient = c.IsClient
 	config.NoKernelTun = c.NoKernelTun
+	config.DNS = c.DNS
 
 	return config, nil
 }
