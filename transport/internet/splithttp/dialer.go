@@ -5,11 +5,10 @@ import (
 	gotls "crypto/tls"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
-	reflect "reflect"
+	"reflect"
 	"runtime"
 	"strconv"
 	"sync"
@@ -28,7 +27,6 @@ import (
 	"github.com/xtls/xray-core/transport/internet/browser_dialer"
 	"github.com/xtls/xray-core/transport/internet/hysteria/congestion"
 	"github.com/xtls/xray-core/transport/internet/hysteria/congestion/bbr"
-	"github.com/xtls/xray-core/transport/internet/hysteria/udphop"
 	"github.com/xtls/xray-core/transport/internet/reality"
 	"github.com/xtls/xray-core/transport/internet/stat"
 	"github.com/xtls/xray-core/transport/internet/tls"
@@ -118,18 +116,15 @@ func createHTTPClient(dest net.Destination, streamSettings *internet.MemoryStrea
 	transportConfig := streamSettings.ProtocolSettings.(*Config)
 
 	dialContext := func(ctxInner context.Context) (net.Conn, error) {
-		conn, err := internet.DialSystem(ctxInner, dest, streamSettings.SocketSettings)
+		var conn net.Conn
+		var err error
+		if streamSettings.FinalMask != nil {
+			conn, err = streamSettings.FinalMask.DialTCP(ctxInner, dest)
+		} else {
+			conn, err = internet.DialSystem(ctxInner, dest, streamSettings.SocketSettings)
+		}
 		if err != nil {
 			return nil, err
-		}
-
-		if streamSettings.TcpmaskManager != nil {
-			newConn, err := streamSettings.TcpmaskManager.WrapConnClient(conn)
-			if err != nil {
-				conn.Close()
-				return nil, errors.New("mask err").Base(err)
-			}
-			conn = newConn
 		}
 
 		if realityConfig != nil {
@@ -162,7 +157,6 @@ func createHTTPClient(dest net.Destination, streamSettings *internet.MemoryStrea
 		if quicParams == nil {
 			quicParams = &internet.QuicParams{
 				BbrProfile: string(bbr.ProfileStandard),
-				UdpHop:     &internet.UdpHop{},
 			}
 		}
 
@@ -175,6 +169,7 @@ func createHTTPClient(dest net.Destination, streamSettings *internet.MemoryStrea
 			KeepAlivePeriod:                time.Duration(quicParams.KeepAlivePeriod) * time.Second,
 			MaxIncomingStreams:             quicParams.MaxIncomingStreams,
 			DisablePathMTUDiscovery:        quicParams.DisablePathMtuDiscovery || (runtime.GOOS != "linux" && runtime.GOOS != "windows" && runtime.GOOS != "darwin"),
+			ChromeParrot:                   !quicParams.DisableChromeParrot,
 		}
 		if quicParams.MaxIdleTimeout == 0 {
 			quicConfig.MaxIdleTimeout = net.ConnIdleTimeout
@@ -197,76 +192,51 @@ func createHTTPClient(dest net.Destination, streamSettings *internet.MemoryStrea
 			QUICConfig:      quicConfig,
 			TLSClientConfig: gotlsConfig,
 			Dial: func(ctx context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (*quic.Conn, error) {
-				udpHopDialer := func(addr *net.UDPAddr) (net.PacketConn, error) {
-					conn, err := internet.DialSystem(ctx, net.UDPDestination(net.IPAddress(addr.IP), net.Port(addr.Port)), streamSettings.SocketSettings)
+				var pktConn net.PacketConn
+				var udpAddr net.Addr
+				if streamSettings.FinalMask != nil {
+					conn, err := streamSettings.FinalMask.DialUDP(ctx, dest)
 					if err != nil {
-						errors.LogInfoInner(context.Background(), err, "skip hop: failed to dial to dest")
-						return nil, errors.New("")
+						return nil, errors.New("failed to dial to dest").Base(err)
 					}
-
-					var pktConn net.PacketConn
-
+					pktConn = conn.(*net.PacketConnWrapper).PacketConn
+					udpAddr = conn.RemoteAddr()
+				} else {
+					conn, err := internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
+					if err != nil {
+						return nil, errors.New("failed to dial to dest").Base(err)
+					}
 					switch c := conn.(type) {
-					case *internet.PacketConnWrapper:
+					case *net.PacketConnWrapper:
 						pktConn = c.PacketConn
+						udpAddr = c.RemoteAddr()
 					case *cnc.Connection:
 						pktConn = &internet.FakePacketConn{Conn: c}
+						udpAddr = &net.UDPAddr{IP: []byte{0, 0, 0, 0}}
 					default:
 						panic(reflect.TypeOf(c))
 					}
-
-					return pktConn, nil
 				}
 
-				var pktConn net.PacketConn
-				var udpAddr *net.UDPAddr
-				var index int
+				tr := &quic.Transport{Conn: pktConn, DisableGSO: quicParams.DisableGSO}
 
-				if len(quicParams.UdpHop.Ports) > 0 {
-					index = rand.Intn(len(quicParams.UdpHop.Ports))
-					dest.Port = net.Port(quicParams.UdpHop.Ports[index])
+				if !quicParams.DisableChromeParrot {
+					tr.ConnectionIDGenerator = quic.ZeroLengthConnectionIDGenerator{}
+					tlsCfg.GetCertificate = nil
 				}
 
-				raw, err := internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
-				if err != nil {
-					return nil, errors.New("failed to dial to dest").Base(err)
-				}
-				switch c := raw.(type) {
-				case *internet.PacketConnWrapper:
-					pktConn = c.PacketConn
-					udpAddr = raw.RemoteAddr().(*net.UDPAddr)
-				case *cnc.Connection:
-					pktConn = &internet.FakePacketConn{Conn: c}
-					udpAddr = &net.UDPAddr{IP: c.RemoteAddr().(*net.TCPAddr).IP, Port: c.RemoteAddr().(*net.TCPAddr).Port}
-				default:
-					panic(reflect.TypeOf(c))
-				}
-
-				if len(quicParams.UdpHop.Ports) > 0 {
-					pktConn = udphop.NewUDPHopPacketConn(udphop.ToAddrs(udpAddr.IP, quicParams.UdpHop.Ports), time.Duration(quicParams.UdpHop.IntervalMin)*time.Second, time.Duration(quicParams.UdpHop.IntervalMax)*time.Second, udpHopDialer, pktConn, index)
-				}
-
-				if streamSettings.UdpmaskManager != nil {
-					newConn, err := streamSettings.UdpmaskManager.WrapPacketConnClient(pktConn)
-					if err != nil {
-						pktConn.Close()
-						return nil, errors.New("mask err").Base(err)
-					}
-					pktConn = newConn
-				}
-
-				conn, err := quic.DialEarly(ctx, pktConn, udpAddr, tlsCfg, cfg)
+				conn, err := tr.DialEarly(ctx, udpAddr, tlsCfg, cfg)
 				if err != nil {
 					return nil, err
 				}
-				context.AfterFunc(conn.Context(), func() { pktConn.Close() })
+				context.AfterFunc(conn.Context(), func() { tr.Close(); pktConn.Close() })
 
 				switch quicParams.Congestion {
 				case "reno":
 				case "", "bbr":
 					congestion.UseBBR(conn, bbr.Profile(quicParams.BbrProfile))
 				case "force-brutal":
-					congestion.UseBrutal(conn, quicParams.BrutalUp)
+					congestion.UseBrutal(conn, quicParams.BrutalUp, quicParams.BrutalDisableLossCompensation)
 				default:
 					panic(quicParams.Congestion)
 				}
@@ -595,11 +565,12 @@ func (w uploadWriter) Write(b []byte) (int, error) {
 
 	var writed int
 	for _, buff := range buffer.MultiBuffer {
+		n := int(buff.Len())
 		err := w.WriteMultiBuffer(buf.MultiBuffer{buff})
 		if err != nil {
 			return writed, err
 		}
-		writed += int(buff.Len())
+		writed += n
 	}
 	return writed, nil
 }

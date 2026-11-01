@@ -48,20 +48,16 @@ func dialWebSocket(ctx context.Context, dest net.Destination, streamSettings *in
 
 	dialer := &websocket.Dialer{
 		NetDial: func(network, addr string) (net.Conn, error) {
-			conn, err := internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
+			var conn net.Conn
+			var err error
+			if streamSettings.FinalMask != nil {
+				conn, err = streamSettings.FinalMask.DialTCP(ctx, dest)
+			} else {
+				conn, err = internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
+			}
 			if err != nil {
-				return nil, err
+				return nil, errors.New("failed to dial to dest").Base(err)
 			}
-
-			if streamSettings.TcpmaskManager != nil {
-				newConn, err := streamSettings.TcpmaskManager.WrapConnClient(conn)
-				if err != nil {
-					conn.Close()
-					return nil, errors.New("mask err").Base(err)
-				}
-				conn = newConn
-			}
-
 			return conn, err
 		},
 		ReadBufferSize:   4 * 1024,
@@ -79,19 +75,15 @@ func dialWebSocket(ctx context.Context, dest net.Destination, streamSettings *in
 		if fingerprint := tls.GetFingerprint(tConfig.Fingerprint); fingerprint != nil {
 			dialer.NetDialTLSContext = func(_ context.Context, _, addr string) (net.Conn, error) {
 				// Like the NetDial in the dialer
-				pconn, err := internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
-				if err != nil {
-					errors.LogErrorInner(ctx, err, "failed to dial to "+addr)
-					return nil, err
+				var pconn net.Conn
+				var err error
+				if streamSettings.FinalMask != nil {
+					pconn, err = streamSettings.FinalMask.DialTCP(ctx, dest)
+				} else {
+					pconn, err = internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
 				}
-
-				if streamSettings.TcpmaskManager != nil {
-					newConn, err := streamSettings.TcpmaskManager.WrapConnClient(pconn)
-					if err != nil {
-						pconn.Close()
-						return nil, errors.New("mask err").Base(err)
-					}
-					pconn = newConn
+				if err != nil {
+					return nil, errors.New("failed to dial to dest").Base(err)
 				}
 
 				// TLS and apply the handshake
@@ -173,6 +165,25 @@ type delayDialConn struct {
 	ctx            context.Context
 	dest           net.Destination
 	streamSettings *internet.MemoryStreamConfig
+}
+
+// LocalAddr returns nil until the deferred WebSocket dial has completed.
+// Without this method, Go promotes LocalAddr from the embedded net.Conn; the
+// embedded interface is nil before the first Write, so the promoted call panics.
+func (d *delayDialConn) LocalAddr() net.Addr {
+	if d.Conn == nil {
+		return nil
+	}
+	return d.Conn.LocalAddr()
+}
+
+// RemoteAddr returns nil until the deferred WebSocket dial has completed.
+// See LocalAddr for why an explicit method is required here.
+func (d *delayDialConn) RemoteAddr() net.Addr {
+	if d.Conn == nil {
+		return nil
+	}
+	return d.Conn.RemoteAddr()
 }
 
 func (d *delayDialConn) Write(b []byte) (int, error) {

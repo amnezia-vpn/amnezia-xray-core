@@ -72,6 +72,7 @@ type RouterConfig struct {
 	RuleList       []json.RawMessage `json:"rules"`
 	DomainStrategy *string           `json:"domainStrategy"`
 	Balancers      []*BalancingRule  `json:"balancers"`
+	Script         string            `json:"script"`
 }
 
 func (c *RouterConfig) getDomainStrategy() router.Config_DomainStrategy {
@@ -92,6 +93,12 @@ func (c *RouterConfig) getDomainStrategy() router.Config_DomainStrategy {
 
 func (c *RouterConfig) Build() (*router.Config, error) {
 	config := new(router.Config)
+
+	if c.Script != "" && (c.DomainStrategy != nil || len(c.RuleList) > 0) {
+		return nil, errors.New("routing script cannot be used with domainStrategy or rules")
+	}
+	config.Script = c.Script
+
 	config.DomainStrategy = c.getDomainStrategy()
 
 	var rawRuleList []json.RawMessage
@@ -148,6 +155,7 @@ func parseFieldRule(msg json.RawMessage) (*router.RoutingRule, error) {
 		LocalIP    *StringList        `json:"localIP"`
 		LocalPort  *PortList          `json:"localPort"`
 		Process    *StringList        `json:"process"`
+		LocalOS    *StringList        `json:"localOS"`
 		Webhook    *WebhookRuleConfig `json:"webhook"`
 	}
 	rawFieldRule := new(RawFieldRule)
@@ -259,6 +267,10 @@ func parseFieldRule(msg json.RawMessage) (*router.RoutingRule, error) {
 
 	if rawFieldRule.Process != nil && len(*rawFieldRule.Process) > 0 {
 		rule.Process = *rawFieldRule.Process
+	}
+
+	if rawFieldRule.LocalOS != nil && len(*rawFieldRule.LocalOS) > 0 {
+		rule.LocalOs = *rawFieldRule.LocalOS
 	}
 
 	if rawFieldRule.Webhook != nil && rawFieldRule.Webhook.URL != "" {
