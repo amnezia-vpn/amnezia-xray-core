@@ -7,6 +7,7 @@ import (
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/common/net/cnc"
+	"github.com/xtls/xray-core/common/session"
 	"github.com/xtls/xray-core/transport/internet/finalmask"
 )
 
@@ -67,14 +68,21 @@ func ToMemoryStreamConfig(s *StreamConfig) (*MemoryStreamConfig, error) {
 			udpMasks = append(udpMasks, instance.(finalmask.UDPMask))
 		}
 
+		socketSettingsForDial := func(ctx context.Context) *SocketConfig {
+			// Per-flow settings may clone socket options while sharing this mask.
+			if flow, ok := session.StreamSettingsFromContext(ctx).(*MemoryStreamConfig); ok && flow != nil && flow.FinalMask == mss.FinalMask {
+				return flow.SocketSettings
+			}
+			return mss.SocketSettings
+		}
 		dialTCP := func(ctx context.Context, dest net.Destination) (net.Conn, error) {
-			return DialSystem(ctx, dest, mss.SocketSettings)
+			return DialSystem(ctx, dest, socketSettingsForDial(ctx))
 		}
 		listen := func(ctx context.Context, addr net.Addr) (net.Listener, error) {
 			return ListenSystem(ctx, addr, mss.SocketSettings)
 		}
 		dialUDP := func(ctx context.Context, dest net.Destination) (net.PacketConn, net.Addr, error) {
-			conn, err := DialSystem(ctx, dest, mss.SocketSettings)
+			conn, err := DialSystem(ctx, dest, socketSettingsForDial(ctx))
 			if err != nil {
 				return nil, nil, err
 			}

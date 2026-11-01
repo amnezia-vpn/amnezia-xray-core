@@ -282,7 +282,9 @@ func (h *Handler) Dial(ctx context.Context, dest net.Destination) (stat.Connecti
 	if mark := session.OutboundSocketMarkFromContext(ctx); mark != 0 {
 		var applied bool
 		streamSettings, applied = streamSettingsWithOutboundSocketMark(streamSettings, mark, runtime.GOOS, dest.Network)
-		if !applied {
+		if applied {
+			ctx = session.ContextWithStreamSettings(ctx, streamSettings)
+		} else {
 			errors.LogInfo(ctx, "per-user fwmark is supported only by a direct Freedom outbound on Linux; continuing without it")
 		}
 	}
