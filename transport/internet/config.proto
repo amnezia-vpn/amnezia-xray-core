@@ -80,7 +80,7 @@ message QuicParams {
   bool disable_chrome_parrot = 13;
   bool disableGSO = 14;
   int64 max_incoming_streams = 15;
-  bool disable_stateless_reset = 16;    
+  bool disable_stateless_reset = 16;
 }
 
 message CustomSockopt {

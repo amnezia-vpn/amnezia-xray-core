@@ -16,4 +16,3 @@ message Config {
   repeated string remoteIPs = 7;
   repeated uint32 remote_ports = 8;
 }
-
