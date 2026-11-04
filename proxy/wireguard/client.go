@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -34,12 +35,12 @@ import (
 type Handler struct {
 	p policy.Manager
 
-	canup *atomic.Bool
-	tnet  *Net
-	bind  *bind
-	dev   *device.Device
-	ipc   string
-	mu    sync.Mutex
+	tun  *blockup
+	tnet *Net
+	bind *bind
+	dev  *device.Device
+	ipc  string
+	mu   sync.Mutex
 }
 
 func NewClient(ctx context.Context, conf *DeviceConfig) (*Handler, error) {
@@ -122,21 +123,8 @@ func NewClient(ctx context.Context, conf *DeviceConfig) (*Handler, error) {
 	}
 
 	blockup := newblockup(tun)
-	bind := &bind{}
-	logger := &device.Logger{
-		Verbosef: func(format string, args ...any) {
-			log.Record(&log.GeneralMessage{
-				Severity: log.Severity_Debug,
-				Content:  fmt.Sprintf(format, args...),
-			})
-		},
-		Errorf: func(format string, args ...any) {
-			log.Record(&log.GeneralMessage{
-				Severity: log.Severity_Error,
-				Content:  fmt.Sprintf(format, args...),
-			})
-		},
-	}
+	bind := &bind{preservePackets: len(conf.AmneziaOptions) != 0}
+	logger := newDeviceLogger()
 	dev := device.NewDevice(blockup, bind, logger)
 	bind.ctx = context.Background()
 	bind.resolveFunc = MakeResolveLocal(d, streamSettings)
@@ -177,30 +165,15 @@ func NewClient(ctx context.Context, conf *DeviceConfig) (*Handler, error) {
 	}
 	bind.downFunc = dev.Down
 	bind.reserved = conf.Reserved
-	var cfg strings.Builder
-	cfg.WriteString("private_key=" + conf.SecretKey + "\n")
-	for _, peer := range conf.Peers {
-		cfg.WriteString("public_key=" + peer.PublicKey + "\n")
-		if peer.PreSharedKey != "" {
-			cfg.WriteString("preshared_key=" + peer.PreSharedKey + "\n")
-		}
-		cfg.WriteString("endpoint=" + peer.Endpoint + "\n")
-		for _, ip := range peer.AllowedIps {
-			cfg.WriteString("allowed_ip=" + ip + "\n")
-		}
-		if peer.KeepAlive != "" {
-			cfg.WriteString("persistent_keepalive_interval=" + peer.KeepAlive + "\n")
-		}
-	}
 
 	return &Handler{
 		p: p,
 
-		canup: blockup.canup,
-		tnet:  tnet,
-		bind:  bind,
-		dev:   dev,
-		ipc:   cfg.String(),
+		tun:  blockup,
+		tnet: tnet,
+		bind: bind,
+		dev:  dev,
+		ipc:  buildClientUAPI(conf),
 	}, nil
 }
 
@@ -311,16 +284,30 @@ func (h *Handler) up(ctx context.Context) error {
 		return errors.New("closed")
 	}
 	h.bind.SetCtx(ctx)
-	if !h.canup.Load() {
-		h.canup.Store(true)
-	}
 	if len(h.ipc) > 0 {
 		if err := h.dev.IpcSet(h.ipc); err != nil {
+			errors.LogErrorInner(ctx, err, "WireGuard UAPI configuration rejected")
 			return err
 		}
 		h.ipc = ""
 	}
+	h.tun.configured()
 	return h.dev.Up()
+}
+
+func newDeviceLogger() *device.Logger {
+	return &device.Logger{
+		Verbosef: func(format string, args ...any) {
+			severity := log.Severity_Warning
+			if strings.Contains(format, "Routine:") {
+				severity = log.Severity_Debug
+			}
+			log.Record(&log.GeneralMessage{Severity: severity, Content: "proxy/wireguard: " + fmt.Sprintf(format, args...)})
+		},
+		Errorf: func(format string, args ...any) {
+			log.Record(&log.GeneralMessage{Severity: log.Severity_Error, Content: "proxy/wireguard: " + fmt.Sprintf(format, args...)})
+		},
+	}
 }
 
 func MakeResolveLocal(d dns.Client, streamSettings *internet.MemoryStreamConfig) func(host string) (net.IP, error) {
@@ -501,8 +488,14 @@ func (c *cache) Cache(host string, saddr []string, ttl uint32) {
 
 type blockup struct {
 	tun.Device
-	ch    chan tun.Event
-	canup *atomic.Bool
+	ch         chan tun.Event
+	canup      *atomic.Bool
+	ready      chan struct{}
+	done       chan struct{}
+	readyOnce  sync.Once
+	closeOnce  sync.Once
+	readPrimed atomic.Bool
+	closeErr   error
 }
 
 func newblockup(t tun.Device) *blockup {
@@ -520,7 +513,28 @@ func newblockup(t tun.Device) *blockup {
 		}
 		close(ch)
 	}()
-	return &blockup{Device: t, ch: ch, canup: canup}
+	return &blockup{Device: t, ch: ch, canup: canup, ready: make(chan struct{}), done: make(chan struct{})}
+}
+
+func (b *blockup) configured() {
+	b.readyOnce.Do(func() { b.canup.Store(true); close(b.ready) })
+}
+
+func (b *blockup) Read(bufs [][]byte, sizes []int, offset int) (int, error) {
+	select {
+	case <-b.done:
+		return 0, os.ErrClosed
+	case <-b.ready:
+	}
+	if !b.readPrimed.Swap(true) {
+		return 0, nil
+	}
+	return b.Device.Read(bufs, sizes, offset)
+}
+
+func (b *blockup) Close() error {
+	b.closeOnce.Do(func() { close(b.done); b.closeErr = b.Device.Close() })
+	return b.closeErr
 }
 
 func (b *blockup) Events() <-chan tun.Event {
